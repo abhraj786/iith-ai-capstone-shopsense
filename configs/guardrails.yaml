@@ -1,0 +1,3 @@
+# TODO: Define rules for the selected domain and enforce them in code.
+# Human approval, action limits, forbidden advice, prompt injection and abstention.
+# Never infer approval from a user's request to bypass checks.

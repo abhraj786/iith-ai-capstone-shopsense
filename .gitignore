@@ -216,3 +216,16 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Track scaffold metadata but exclude generated datasets/state recursively.
+/data/**
+!/data/**/
+!/data/**/.gitkeep
+!/data/**/README.md
+/runtime/**
+!/runtime/**/
+!/runtime/**/.gitkeep
+!/runtime/**/README.md
+/evaluation/reports/*
+!/evaluation/reports/.gitkeep
+.DS_Store
