@@ -2,7 +2,7 @@
 
 ShopSense customer-care and order-operations capstone for the IIT Hyderabad Applied AI program.
 
-This repository currently implements **M1: Intake Parsing**. The M1 pipeline converts raw customer support messages into validated structured tickets, evaluates them against generated ground truth, and includes deterministic policy checks for order IDs and escalation signals.
+This repository currently implements **M1: Intake Parsing** and the first slice of **M2: Safe Action Planning**. M1 converts raw customer support messages into validated structured tickets. M2 takes those tickets and proposes the next operational action through deterministic policy tools.
 
 ## What Is Included
 
@@ -12,6 +12,8 @@ This repository currently implements **M1: Intake Parsing**. The M1 pipeline con
 - Pydantic ticket schema under `src/capstone/schemas/intake.py`
 - LiteLLM structured-output client under `src/capstone/llm/client.py`
 - Intake parser under `src/capstone/agents/intake_agent.py`
+- M2 action planner under `src/capstone/agents/action_agent.py`
+- Deterministic lookup, policy, and action tools under `src/capstone/tools/`
 - M1 evaluation script under `scripts/run_intake_eval.py`
 - Unit tests under `tests/unit/`
 - Latest committed M1 report under `evaluation/reports/m1_holdout_n60_v4.json`
@@ -43,7 +45,7 @@ python -m pytest tests/unit
 Expected current result:
 
 ```text
-25 passed
+31 passed
 ```
 
 ## Run M1 Evaluation
@@ -76,3 +78,13 @@ The LLM handles language understanding. Python enforces deterministic rules.
 - Prompt-injection attempts are treated as customer data, not instructions.
 
 This keeps exact policy decisions out of the LLM and makes the intake output safer for later milestones.
+
+## M2 Design
+
+M2 starts with a safe action boundary. The LLM does not approve refunds or mutate state.
+
+- `plan_action(...)` accepts a validated `SupportTicket`, customer reference, and policy date.
+- Read-only lookups can return tracking details during planning.
+- Refunds, replacements, and human queue entries are proposal-only unless `execute=True`.
+- Refund eligibility, amounts, approval tiers, idempotency, and customer-scoped order access are enforced in Python tools.
+- Risk signals such as legal threats, repeat contact, account restrictions, and over-cap refunds route to a human queue.
