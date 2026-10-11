@@ -14,8 +14,10 @@ from pydantic import ValidationError
 
 from capstone.agents.action_agent import plan_action
 from capstone.agents.intake_agent import parse_ticket
+from capstone.agents.policy_agent import PolicyAgent
 from capstone.llm.client import LLMClient
 from capstone.memory.store import CustomerMemoryStore, get_memory_store
+from capstone.rag.hybrid import HybridPolicyRetriever
 from capstone.rag.policy_index import PolicyIndex
 from capstone.schemas.intake import SupportTicket
 from capstone.settings import PROJECT_ROOT, get_settings
@@ -264,8 +266,12 @@ HTML = """<!doctype html>
           <pre id="m3Out">{}</pre>
         </div>
         <div class="module">
+          <div class="module-head"><span>M4 Grounded Policy Answer</span><span class="badge pending" id="m4Badge">Waiting</span></div>
+          <pre id="m4Out">{}</pre>
+        </div>
+        <div class="module">
           <div class="module-head"><span>Next Milestones</span><span class="badge pending">Reserved</span></div>
-          <pre id="futureOut">M4-M8 outputs will be added here as the repo grows module by module.</pre>
+          <pre id="futureOut">M5-M8 outputs will be added here as the repo grows module by module.</pre>
         </div>
       </div>
     </section>
@@ -277,9 +283,11 @@ HTML = """<!doctype html>
     const m1Out = document.querySelector("#m1Out");
     const m2Out = document.querySelector("#m2Out");
     const m3Out = document.querySelector("#m3Out");
+    const m4Out = document.querySelector("#m4Out");
     const m1Badge = document.querySelector("#m1Badge");
     const m2Badge = document.querySelector("#m2Badge");
     const m3Badge = document.querySelector("#m3Badge");
+    const m4Badge = document.querySelector("#m4Badge");
 
     function pretty(value) {
       return JSON.stringify(value ?? {}, null, 2);
@@ -306,9 +314,11 @@ HTML = """<!doctype html>
       m1Badge.textContent = "Running";
       m2Badge.textContent = "Waiting";
       m3Badge.textContent = "Waiting";
+      m4Badge.textContent = "Waiting";
       m1Badge.className = "badge pending";
       m2Badge.className = "badge pending";
       m3Badge.className = "badge pending";
+      m4Badge.className = "badge pending";
       const payload = {
         mode: document.querySelector("#mode").value,
         raw_text: rawText.value,
@@ -330,21 +340,26 @@ HTML = """<!doctype html>
           m1Badge.textContent = data.stage === "m1" ? "Failed" : "Skipped";
           m2Badge.textContent = data.stage === "m2" ? "Failed" : "Skipped";
           m3Badge.textContent = data.stage === "m3" ? "Failed" : "Skipped";
+          m4Badge.textContent = data.stage === "m4" ? "Failed" : "Skipped";
           m1Out.textContent = pretty(data.m1);
           m2Out.textContent = pretty(data.m2 || data);
           m3Out.textContent = pretty(data.m3 || {});
+          m4Out.textContent = pretty(data.m4 || {});
           return;
         }
         m1Out.textContent = pretty(data.m1);
         m2Out.textContent = pretty(data.m2);
         m3Out.textContent = pretty(data.m3);
+        m4Out.textContent = pretty(data.m4);
         ticketJson.value = pretty(data.m1);
         m1Badge.textContent = data.mode === "m2" ? "Provided" : "Complete";
         m2Badge.textContent = "Complete";
         m3Badge.textContent = "Complete";
+        m4Badge.textContent = "Complete";
         m1Badge.className = "badge";
         m2Badge.className = "badge";
         m3Badge.className = "badge";
+        m4Badge.className = "badge";
         setStatus("Run complete.");
       } catch (err) {
         setStatus(String(err), true);
@@ -387,7 +402,8 @@ def _sample_record() -> dict[str, Any]:
 def run_pipeline(payload: dict[str, Any], client: LLMClient | None = None,
                  repo: Repository | None = None,
                  memory_store: CustomerMemoryStore | None = None,
-                 policy_index: PolicyIndex | None = None) -> dict[str, Any]:
+                 policy_index: PolicyIndex | None = None,
+                 policy_agent: PolicyAgent | None = None) -> dict[str, Any]:
     mode = payload.get("mode", "full")
     customer_ref = str(payload.get("customer_ref") or "").strip()
     if not customer_ref:
@@ -437,6 +453,8 @@ def run_pipeline(payload: dict[str, Any], client: LLMClient | None = None,
         proposal.explanation,
     ])
     hits = [hit.model_dump(mode="json") for hit in index.search(policy_query, limit=3)]
+    answer_agent = policy_agent or PolicyAgent(HybridPolicyRetriever(index))
+    policy_answer = answer_agent.answer(policy_query)
     return {
         "mode": mode,
         "m1": ticket.model_dump(mode="json"),
@@ -445,6 +463,7 @@ def run_pipeline(payload: dict[str, Any], client: LLMClient | None = None,
             "customer_context": context,
             "policy_hits": hits,
         },
+        "m4": policy_answer.model_dump(mode="json"),
     }
 
 

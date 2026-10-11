@@ -2,7 +2,7 @@
 
 ShopSense customer-care and order-operations capstone for the IIT Hyderabad Applied AI program.
 
-This repository currently implements **M1: Intake Parsing**, **M2: Safe Action Planning**, and the first slice of **M3: Memory + Policy Index**. M1 converts raw customer support messages into validated structured tickets. M2 takes those tickets and proposes the next operational action through deterministic policy tools. M3 persists per-customer interaction memory and builds a local Qdrant index over ShopSense policy documents.
+This repository currently implements **M1: Intake Parsing**, **M2: Safe Action Planning**, **M3: Memory + Policy Index**, and **M4: Grounded Policy RAG**. M1 converts raw customer support messages into validated structured tickets. M2 takes those tickets and proposes the next operational action through deterministic policy tools. M3 persists per-customer interaction memory and builds a local Qdrant index over ShopSense policy documents. M4 answers policy questions using hybrid retrieval, reranking, citations, and groundedness checks.
 
 ## What Is Included
 
@@ -16,6 +16,8 @@ This repository currently implements **M1: Intake Parsing**, **M2: Safe Action P
 - Deterministic lookup, policy, and action tools under `src/capstone/tools/`
 - M3 per-customer memory store under `src/capstone/memory/store.py`
 - M3 Qdrant policy index under `src/capstone/rag/policy_index.py`
+- M4 policy RAG agent under `src/capstone/agents/policy_agent.py`
+- M4 hybrid retrieval under `src/capstone/rag/hybrid.py`
 - M1 evaluation script under `scripts/run_intake_eval.py`
 - Unit tests under `tests/unit/`
 - Latest committed M1 report under `evaluation/reports/m1_holdout_n60_v4.json`
@@ -47,7 +49,7 @@ python -m pytest tests/unit
 Expected current result:
 
 ```text
-35 passed
+37 passed
 ```
 
 ## Run Local Workbench UI
@@ -70,6 +72,12 @@ Build or refresh the local M3 policy index directly:
 
 ```bash
 python scripts/build_policy_index.py
+```
+
+Run M4 groundedness evaluation:
+
+```bash
+python scripts/run_policy_eval.py
 ```
 
 ## Run M1 Evaluation
@@ -122,3 +130,13 @@ M3 adds local persistence and policy retrieval foundations.
 - `PolicyIndex` builds a Qdrant collection from the markdown policy corpus.
 - Embeddings are deterministic and local so tests do not require an external embedding model.
 - M4 can replace this with hybrid search/reranking while keeping the Qdrant collection boundary.
+
+## M4 Design
+
+M4 turns policy retrieval into grounded policy answers.
+
+- Hybrid retrieval combines Qdrant vector hits with deterministic keyword retrieval.
+- Reranking boosts exact policy/category matches before answer generation.
+- `PolicyAgent` answers only from retrieved evidence and returns citations.
+- Groundedness checks reject unsupported numeric claims, preventing invented return windows or refund amounts.
+- `evaluation/m4_policy_cases.json` covers category windows, groceries, legal routing, and the automated refund cap.

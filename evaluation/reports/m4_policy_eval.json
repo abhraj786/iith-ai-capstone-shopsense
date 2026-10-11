@@ -1,0 +1,182 @@
+{
+  "total": 5,
+  "passed": 5,
+  "failed": 0,
+  "results": [
+    {
+      "id": "beauty-opened-after-window",
+      "ok": true,
+      "missing_terms": [],
+      "forbidden_terms_found": [],
+      "answer": {
+        "question": "Can a customer return an opened Beauty item after 11 days?",
+        "answer": "Based on the retrieved policy evidence: ### 2.0 RETURN WINDOWS AND ELIGIBILITY 2.1 **Standard Return Window:** The return window for all items within the Beauty category is exactly **10** days from the recorded delivery date. ### 2.7 Worked Refund Calculation Example A customer purchases a Home & Kitchen appliance for an invoiced payment amount of 8,000 rupees and subsequently requests a return under `changed_mind` after opening the packaging: 1. Return requests initiated on day **11** or later shall be automatically rejected by the system.",
+        "grounded": true,
+        "citations": [
+          {
+            "document_slug": "category-beauty",
+            "title": "Category Policy Addendum: Beauty",
+            "chunk_id": 1
+          },
+          {
+            "document_slug": "returns-policy",
+            "title": "Kartway Returns and Refunds Policy",
+            "chunk_id": 4
+          },
+          {
+            "document_slug": "returns-policy",
+            "title": "Kartway Returns and Refunds Policy",
+            "chunk_id": 0
+          }
+        ],
+        "evidence": [
+          "### 2.0 RETURN WINDOWS AND ELIGIBILITY 2.1 **Standard Return Window:** The return window for all items within the Beauty category is exactly **10** days from the recorded delivery date.",
+          "### 2.7 Worked Refund Calculation Example A customer purchases a Home & Kitchen appliance for an invoiced payment amount of 8,000 rupees and subsequently requests a return under `changed_mind` after opening the packaging: 1.",
+          "Return requests initiated on day **11** or later shall be automatically rejected by the system.",
+          "2.2 **Change of Mind Restrictions:** An opened item cannot be returned for a change of mind under any circumstances."
+        ],
+        "unsupported_claims": []
+      }
+    },
+    {
+      "id": "auto-refund-cap",
+      "ok": true,
+      "missing_terms": [],
+      "forbidden_terms_found": [],
+      "answer": {
+        "question": "What is the automated assistant refund approval cap?",
+        "answer": "Based on the retrieved policy evidence: Authority to disburse a goodwill credit up to the 500 rupees cap is delegated to any operational tier, including the automated assistant acting alone. The automated assistant (bot orchestration system) possesses approval authority strictly up to 2,000 rupees. Automated Assistant Operational Boundaries** 7.3.1.",
+        "grounded": true,
+        "citations": [
+          {
+            "document_slug": "refund-authority",
+            "title": "Refund Authorisation and Escalation Matrix",
+            "chunk_id": 4
+          },
+          {
+            "document_slug": "refund-authority",
+            "title": "Refund Authorisation and Escalation Matrix",
+            "chunk_id": 2
+          },
+          {
+            "document_slug": "refund-authority",
+            "title": "Refund Authorisation and Escalation Matrix",
+            "chunk_id": 3
+          }
+        ],
+        "evidence": [
+          "Authority to disburse a goodwill credit up to the 500 rupees cap is delegated to any operational tier, including the automated assistant acting alone.",
+          "The automated assistant (bot orchestration system) possesses approval authority strictly up to 2,000 rupees.",
+          "Automated Assistant Operational Boundaries** 7.3.1.",
+          "The automated system is programmatically barred from approving any refund exceeding 2,000 rupees under any circumstance."
+        ],
+        "unsupported_claims": []
+      }
+    },
+    {
+      "id": "groceries-return",
+      "ok": true,
+      "missing_terms": [],
+      "forbidden_terms_found": [],
+      "answer": {
+        "question": "Are groceries returnable for change of mind?",
+        "answer": "Based on the retrieved policy evidence: ### GR-04.2 RETURN WINDOW AND CHANGE-OF-MIND RESTRICTIONS 1. 2.2.7 Groceries:** Non-returnable (physical return not accepted under any circumstances). ### 2.4 Return Pickup Fees for Change-of-Mind Requests Where a return request is submitted under the reason code `changed_mind`, the customer is responsible for the reverse transit cost, which is deducted directly from the refund balance.",
+        "grounded": true,
+        "citations": [
+          {
+            "document_slug": "category-groceries",
+            "title": "Category Policy Addendum: Groceries",
+            "chunk_id": 0
+          },
+          {
+            "document_slug": "returns-policy",
+            "title": "Kartway Returns and Refunds Policy",
+            "chunk_id": 1
+          },
+          {
+            "document_slug": "category-groceries",
+            "title": "Category Policy Addendum: Groceries",
+            "chunk_id": 1
+          }
+        ],
+        "evidence": [
+          "### GR-04.2 RETURN WINDOW AND CHANGE-OF-MIND RESTRICTIONS 1.",
+          "2.2.7 Groceries:** Non-returnable (physical return not accepted under any circumstances).",
+          "### 2.4 Return Pickup Fees for Change-of-Mind Requests Where a return request is submitted under the reason code `changed_mind`, the customer is responsible for the reverse transit cost, which is deducted directly from the refund balance.",
+          "Non-Returnable Status:** The Groceries category is classified as entirely non-returnable."
+        ],
+        "unsupported_claims": []
+      }
+    },
+    {
+      "id": "apparel-window",
+      "ok": true,
+      "missing_terms": [],
+      "forbidden_terms_found": [],
+      "answer": {
+        "question": "What is the return window for Apparel?",
+        "answer": "Based on the retrieved policy evidence: ### 4C.2 RETURN WINDOW 4C.2.1 The standard return window for all items listed in the Apparel category is exactly **45 days** from the verified delivery date recorded by the carrier. ### 4C.3 CATEGORY-SPECIFIC CONDITION REQUIREMENTS 4C.3.1 To be eligible for a return under the standard return window, apparel items must meet the following mandatory condition criteria: ### 4C.5 RESTOCKING FEES AND RETURN SHIPPING 4C.5.1 There is **zero restocking fee** applied to any returned item within the Apparel category.",
+        "grounded": true,
+        "citations": [
+          {
+            "document_slug": "category-apparel",
+            "title": "Category Policy Addendum: Apparel",
+            "chunk_id": 0
+          },
+          {
+            "document_slug": "category-apparel",
+            "title": "Category Policy Addendum: Apparel",
+            "chunk_id": 2
+          },
+          {
+            "document_slug": "returns-policy",
+            "title": "Kartway Returns and Refunds Policy",
+            "chunk_id": 0
+          }
+        ],
+        "evidence": [
+          "### 4C.2 RETURN WINDOW 4C.2.1 The standard return window for all items listed in the Apparel category is exactly **45 days** from the verified delivery date recorded by the carrier.",
+          "### 4C.3 CATEGORY-SPECIFIC CONDITION REQUIREMENTS 4C.3.1 To be eligible for a return under the standard return window, apparel items must meet the following mandatory condition criteria:",
+          "### 4C.5 RESTOCKING FEES AND RETURN SHIPPING 4C.5.1 There is **zero restocking fee** applied to any returned item within the Apparel category.",
+          "### 2.2 Return Windows by Category The baseline marketplace return window is 30 days, calculated from the carrier delivery timestamp."
+        ],
+        "unsupported_claims": []
+      }
+    },
+    {
+      "id": "legal-routing",
+      "ok": true,
+      "missing_terms": [],
+      "forbidden_terms_found": [],
+      "answer": {
+        "question": "Where should a legal or consumer forum complaint be routed?",
+        "answer": "Based on the retrieved policy evidence: Definition:** The customer explicitly mentions retainment of legal counsel, filing a formal legal claim, approaching a consumer disputes forum (e.g., District Consumer Disputes Redressal Commission), contacting state or national commerce authorities, or filing a grievance with statutory ombudsmen. Transfer SLA:** The interaction must be routed and enqueued for the `agent` queue within 45 seconds of input recognition. Document Ref:** COP-ADD-CAT-ELEC-04 **Category:** Consumer Electronics & Computing Hardware **Policy Owner:** Malini Sen, Lead Specialist, Returns & Escalations **Effective Date:** 01 November 2024",
+        "grounded": true,
+        "citations": [
+          {
+            "document_slug": "escalation-tone",
+            "title": "Escalation Triggers and Customer Communication Standard",
+            "chunk_id": 1
+          },
+          {
+            "document_slug": "category-electronics",
+            "title": "Category Policy Addendum: Electronics",
+            "chunk_id": 0
+          },
+          {
+            "document_slug": "escalation-tone",
+            "title": "Escalation Triggers and Customer Communication Standard",
+            "chunk_id": 3
+          }
+        ],
+        "evidence": [
+          "Definition:** The customer explicitly mentions retainment of legal counsel, filing a formal legal claim, approaching a consumer disputes forum (e.g., District Consumer Disputes Redressal Commission), contacting state or national commerce authorities, or filing a grievance with statutory ombudsmen.",
+          "Transfer SLA:** The interaction must be routed and enqueued for the `agent` queue within 45 seconds of input recognition.",
+          "Document Ref:** COP-ADD-CAT-ELEC-04 **Category:** Consumer Electronics & Computing Hardware **Policy Owner:** Malini Sen, Lead Specialist, Returns & Escalations **Effective Date:** 01 November 2024",
+          "Transfer SLA:** Direct queue assignment to `legal_desk` within 15 seconds."
+        ],
+        "unsupported_claims": []
+      }
+    }
+  ]
+}

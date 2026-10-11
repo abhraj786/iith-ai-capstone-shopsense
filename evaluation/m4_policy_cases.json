@@ -1,0 +1,32 @@
+[
+  {
+    "id": "beauty-opened-after-window",
+    "question": "Can a customer return an opened Beauty item after 11 days?",
+    "expected_terms": ["Beauty", "10", "opened"],
+    "forbidden_terms": ["30 days", "45 days"]
+  },
+  {
+    "id": "auto-refund-cap",
+    "question": "What is the automated assistant refund approval cap?",
+    "expected_terms": ["2,000", "automated"],
+    "forbidden_terms": ["10,000", "50,000"]
+  },
+  {
+    "id": "groceries-return",
+    "question": "Are groceries returnable for change of mind?",
+    "expected_terms": ["Groceries", "Non-returnable"],
+    "forbidden_terms": ["30 days", "45 days"]
+  },
+  {
+    "id": "apparel-window",
+    "question": "What is the return window for Apparel?",
+    "expected_terms": ["Apparel", "45"],
+    "forbidden_terms": ["10 days", "15 days"]
+  },
+  {
+    "id": "legal-routing",
+    "question": "Where should a legal or consumer forum complaint be routed?",
+    "expected_terms": ["legal_desk", "legal"],
+    "forbidden_terms": ["team_lead", "agent queue"]
+  }
+]
