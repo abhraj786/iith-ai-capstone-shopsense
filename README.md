@@ -2,7 +2,7 @@
 
 ShopSense customer-care and order-operations capstone for the IIT Hyderabad Applied AI program.
 
-This repository currently implements **M1: Intake Parsing**, **M2: Safe Action Planning**, **M3: Memory + Policy Index**, and **M4: Grounded Policy RAG**. M1 converts raw customer support messages into validated structured tickets. M2 takes those tickets and proposes the next operational action through deterministic policy tools. M3 persists per-customer interaction memory and builds a local Qdrant index over ShopSense policy documents. M4 answers policy questions using hybrid retrieval, reranking, citations, and groundedness checks.
+This repository currently implements **M1: Intake Parsing**, **M2: Safe Action Planning**, **M3: Memory + Policy Index**, **M4: Grounded Policy RAG**, and **M5: LangGraph Workflow**. M1 converts raw customer support messages into validated structured tickets. M2 takes those tickets and proposes the next operational action through deterministic policy tools. M3 persists per-customer interaction memory and builds a Qdrant index over ShopSense policy documents. M4 answers policy questions using hybrid retrieval, reranking, citations, and groundedness checks. M5 connects those modules into a checkpointed workflow with human-approval interrupts.
 
 ## What Is Included
 
@@ -18,6 +18,7 @@ This repository currently implements **M1: Intake Parsing**, **M2: Safe Action P
 - M3 Qdrant policy index under `src/capstone/rag/policy_index.py`
 - M4 policy RAG agent under `src/capstone/agents/policy_agent.py`
 - M4 hybrid retrieval under `src/capstone/rag/hybrid.py`
+- M5 LangGraph workflow under `src/capstone/workflow/graph.py`
 - M1 evaluation script under `scripts/run_intake_eval.py`
 - Unit tests under `tests/unit/`
 - Latest committed M1 report under `evaluation/reports/m1_holdout_n60_v4.json`
@@ -49,7 +50,7 @@ python -m pytest tests/unit
 Expected current result:
 
 ```text
-37 passed
+42 passed
 ```
 
 ## Run Local Workbench UI
@@ -161,3 +162,13 @@ M4 turns policy retrieval into grounded policy answers.
 - `PolicyAgent` answers only from retrieved evidence and returns citations.
 - Groundedness checks reject unsupported numeric claims, preventing invented return windows or refund amounts.
 - `evaluation/m4_policy_cases.json` covers category windows, groceries, legal routing, and the automated refund cap.
+
+## M5 Design
+
+M5 connects the earlier modules into one checkpointed LangGraph workflow.
+
+- Nodes run triage, memory update, policy check, action planning, and final routing.
+- Low-risk cases can auto-execute deterministic M2 tools when `execute_actions=True`.
+- Angry, distressed, critical, legal, safety, over-cap, and policy-restricted cases stop at a human-approval interrupt.
+- Each node writes an inspectable JSON checkpoint under `runtime/workflow_checkpoints/<run_id>/`.
+- Unit tests cover both auto-resolution and human-interrupt paths without calling a live LLM.

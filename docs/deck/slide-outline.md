@@ -1,4 +1,4 @@
-# ShopSense M1-M4 Deck Outline
+# ShopSense M1-M5 Deck Outline
 
 This deck evolves with the repository milestone by milestone.
 
@@ -8,6 +8,7 @@ M1: Intake Parsing
 M2: Safe Action Planning
 M3: Customer Memory and Policy Index
 M4: Grounded Policy RAG
+M5: LangGraph Workflow and Checkpointing
 
 ## Slides
 
@@ -24,7 +25,8 @@ M4: Grounded Policy RAG
 11. M4 answer example
 12. Verification status
 13. Repository structure
-14. Next milestone: M5 workflow
+14. M5 LangGraph workflow
+15. Next milestone: M6 multi-agent team
 
 ## Update Pattern
 
