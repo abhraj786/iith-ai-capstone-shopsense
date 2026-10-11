@@ -9,6 +9,7 @@ import json
 import math
 import os
 import re
+import warnings
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -100,7 +101,16 @@ class PolicyIndex:
         qdrant_key = os.getenv("QDRANT_API_KEY") or os.getenv("CAPSTONE_QDRANT_API_KEY")
         collection = os.getenv("QDRANT_COLLECTION") or os.getenv("CAPSTONE_QDRANT_COLLECTION") or COLLECTION_NAME
         if qdrant_url and qdrant_key:
-            return cls(QdrantClient(url=qdrant_url, api_key=qdrant_key), root, collection, "cloud")
+            try:
+                client = QdrantClient(url=qdrant_url, api_key=qdrant_key)
+                client.get_collections()
+                return cls(client, root, collection, "cloud")
+            except Exception as exc:
+                warnings.warn(
+                    f"Qdrant Cloud is configured but unavailable; falling back to local Qdrant: {exc}",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
         return cls.local(index_dir=index_dir)
 
     def load_manifest(self) -> list[dict]:

@@ -84,6 +84,9 @@ QDRANT_API_KEY=...
 QDRANT_COLLECTION=shopsense_policy_m3
 ```
 
+When cloud settings are present, the app tries Qdrant Cloud first. If the cloud endpoint is
+unavailable, it falls back to local Qdrant so demos and evaluations can continue.
+
 Run M4 groundedness evaluation:
 
 ```bash
@@ -145,7 +148,7 @@ M3 adds local persistence and policy retrieval foundations.
 - `CustomerMemoryStore` stores one JSON file per customer under runtime memory.
 - Memory captures preferences plus compact ticket/action history for later workflow context.
 - `PolicyIndex` builds a Qdrant collection from the markdown policy corpus.
-- Qdrant Cloud is used when `QDRANT_URL` and `QDRANT_API_KEY` are configured; otherwise the same code falls back to local persistent Qdrant for reproducible evaluation.
+- Qdrant Cloud is used when `QDRANT_URL` and `QDRANT_API_KEY` are configured and reachable; otherwise the same code falls back to local persistent Qdrant for reproducible evaluation.
 - Embeddings are deterministic and local so tests do not require an external embedding model.
 - M4 can replace this with hybrid search/reranking while keeping the Qdrant collection boundary.
 
