@@ -2,7 +2,7 @@
 
 ShopSense customer-care and order-operations capstone for the IIT Hyderabad Applied AI program.
 
-This repository currently implements **M1: Intake Parsing** and the first slice of **M2: Safe Action Planning**. M1 converts raw customer support messages into validated structured tickets. M2 takes those tickets and proposes the next operational action through deterministic policy tools.
+This repository currently implements **M1: Intake Parsing**, **M2: Safe Action Planning**, and the first slice of **M3: Memory + Policy Index**. M1 converts raw customer support messages into validated structured tickets. M2 takes those tickets and proposes the next operational action through deterministic policy tools. M3 persists per-customer interaction memory and builds a local Qdrant index over ShopSense policy documents.
 
 ## What Is Included
 
@@ -14,6 +14,8 @@ This repository currently implements **M1: Intake Parsing** and the first slice 
 - Intake parser under `src/capstone/agents/intake_agent.py`
 - M2 action planner under `src/capstone/agents/action_agent.py`
 - Deterministic lookup, policy, and action tools under `src/capstone/tools/`
+- M3 per-customer memory store under `src/capstone/memory/store.py`
+- M3 Qdrant policy index under `src/capstone/rag/policy_index.py`
 - M1 evaluation script under `scripts/run_intake_eval.py`
 - Unit tests under `tests/unit/`
 - Latest committed M1 report under `evaluation/reports/m1_holdout_n60_v4.json`
@@ -45,7 +47,7 @@ python -m pytest tests/unit
 Expected current result:
 
 ```text
-33 passed
+35 passed
 ```
 
 ## Run Local Workbench UI
@@ -63,6 +65,12 @@ http://127.0.0.1:8765
 ```
 
 The UI supports full M1+M2 runs and M2-only runs from pasted `SupportTicket` JSON. Full M1+M2 runs require the same `.env` model configuration used by the M1 evaluation script.
+
+Build or refresh the local M3 policy index directly:
+
+```bash
+python scripts/build_policy_index.py
+```
 
 ## Run M1 Evaluation
 
@@ -104,3 +112,13 @@ M2 starts with a safe action boundary. The LLM does not approve refunds or mutat
 - Refunds, replacements, and human queue entries are proposal-only unless `execute=True`.
 - Refund eligibility, amounts, approval tiers, idempotency, and customer-scoped order access are enforced in Python tools.
 - Risk signals such as legal threats, repeat contact, account restrictions, and over-cap refunds route to a human queue.
+
+## M3 Design
+
+M3 adds local persistence and policy retrieval foundations.
+
+- `CustomerMemoryStore` stores one JSON file per customer under runtime memory.
+- Memory captures preferences plus compact ticket/action history for later workflow context.
+- `PolicyIndex` builds a Qdrant collection from the markdown policy corpus.
+- Embeddings are deterministic and local so tests do not require an external embedding model.
+- M4 can replace this with hybrid search/reranking while keeping the Qdrant collection boundary.
