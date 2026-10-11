@@ -234,3 +234,4 @@ __marimo__/
 !/evaluation/reports/.gitkeep
 !/evaluation/reports/m1_holdout_n60_v4.json
 .DS_Store
+.codex-deck-build/
