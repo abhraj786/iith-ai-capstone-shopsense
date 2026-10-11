@@ -80,6 +80,25 @@ def test_legal_signal_routes_to_human_and_can_queue(repo):
     assert proposal.tool_result["routes_to"] == "legal_desk"
 
 
+def test_legal_signal_wins_over_angry_and_over_cap(repo):
+    order = repo.rows("orders")[950]
+    proposal = plan_action(
+        repo,
+        ticket(
+            order_ref=order["order_ref"],
+            escalation_signals=[
+                EscalationSignal.angry_or_abusive,
+                EscalationSignal.legal_or_regulatory,
+                EscalationSignal.refund_above_auto_cap,
+            ],
+        ),
+        order["customer_ref"],
+        today=delivered_on(order),
+    )
+    assert proposal.recommended_action is RecommendedAction.human_review
+    assert proposal.tool_args["trigger"] == "legal_or_regulatory"
+
+
 def test_small_refund_is_only_proposed_until_execute_true(repo):
     order = _delivered_order(repo, max_value=4000, category="Furniture")
     today = delivered_on(order) + timedelta(days=1)

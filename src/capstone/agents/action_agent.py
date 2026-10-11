@@ -28,6 +28,16 @@ REPLACEMENT_REASON_BY_ISSUE = {
     IssueType.wrong_item: "wrong_item",
 }
 
+ESCALATION_PRIORITY = [
+    EscalationSignal.legal_or_regulatory,
+    EscalationSignal.product_safety,
+    EscalationSignal.refund_above_auto_cap,
+    EscalationSignal.delivery_dispute,
+    EscalationSignal.angry_or_abusive,
+    EscalationSignal.repeat_contact,
+    EscalationSignal.human_requested,
+]
+
 HUMAN_FIRST_SIGNALS = {
     EscalationSignal.human_requested,
     EscalationSignal.repeat_contact,
@@ -50,8 +60,9 @@ def _missing_order(ticket: SupportTicket) -> ActionProposal | None:
 
 
 def _human_trigger(ticket: SupportTicket) -> EscalationSignal | None:
-    for signal in ticket.escalation_signals:
-        if signal in HUMAN_FIRST_SIGNALS:
+    signals = set(ticket.escalation_signals)
+    for signal in ESCALATION_PRIORITY:
+        if signal in signals:
             return signal
     return None
 

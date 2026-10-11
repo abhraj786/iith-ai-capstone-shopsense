@@ -45,8 +45,24 @@ python -m pytest tests/unit
 Expected current result:
 
 ```text
-31 passed
+33 passed
 ```
+
+## Run Local Workbench UI
+
+Use the workbench to test M1 and M2 together from a browser:
+
+```bash
+python -m capstone.workbench.app --port 8765
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8765
+```
+
+The UI supports full M1+M2 runs and M2-only runs from pasted `SupportTicket` JSON. Full M1+M2 runs require the same `.env` model configuration used by the M1 evaluation script.
 
 ## Run M1 Evaluation
 
