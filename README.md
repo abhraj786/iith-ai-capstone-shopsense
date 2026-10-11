@@ -146,7 +146,7 @@ M2 starts with a safe action boundary. The LLM does not approve refunds or mutat
 M3 adds local persistence and policy retrieval foundations.
 
 - `CustomerMemoryStore` stores one JSON file per customer under runtime memory.
-- Memory captures preferences plus compact ticket/action history for later workflow context.
+- Memory captures semantic preferences, episodic ticket/action history, procedural policy/tool boundaries, and a deterministic rolling summary for later workflow context.
 - `PolicyIndex` builds a Qdrant collection from the markdown policy corpus.
 - Qdrant Cloud is used when `QDRANT_URL` and `QDRANT_API_KEY` are configured and reachable; otherwise the same code falls back to local persistent Qdrant for reproducible evaluation.
 - Embeddings are deterministic and local so tests do not require an external embedding model.
