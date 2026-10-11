@@ -50,7 +50,7 @@ python -m pytest tests/unit
 Expected current result:
 
 ```text
-42 passed
+43 passed
 ```
 
 ## Run Local Workbench UI
@@ -169,6 +169,8 @@ M5 connects the earlier modules into one checkpointed LangGraph workflow.
 
 - Nodes run triage, memory update, policy check, action planning, and final routing.
 - Low-risk cases can auto-execute deterministic M2 tools when `execute_actions=True`.
-- Angry, distressed, critical, legal, safety, over-cap, and policy-restricted cases stop at a human-approval interrupt.
-- Each node writes an inspectable JSON checkpoint under `runtime/workflow_checkpoints/<run_id>/`.
-- Unit tests cover both auto-resolution and human-interrupt paths without calling a live LLM.
+- Angry, distressed, critical, legal, safety, over-cap, and policy-restricted cases pause with a LangGraph `interrupt()`.
+- Human review resumes through `Command(resume=...)`, and approved cases can execute the queued M2 action.
+- LangGraph state is durably checkpointed in SQLite under `runtime/workflow_checkpoints.sqlite`.
+- Each node also writes an inspectable JSON audit snapshot under `runtime/workflow_checkpoints/<run_id>/`.
+- Unit tests cover auto-resolution, human interrupt, and resume paths without calling a live LLM.

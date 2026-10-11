@@ -8,11 +8,14 @@ triage (M1) -> memory (M3) -> policy check (M4) -> action planning/execution (M2
 from __future__ import annotations
 
 import json
+import sqlite3
 from datetime import date
 from pathlib import Path
 from typing import Any, Literal, TypedDict
 
 from langgraph.graph import END, StateGraph
+from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.types import Command, interrupt
 
 from capstone.agents.action_agent import plan_action
 from capstone.agents.intake_agent import parse_ticket
@@ -38,6 +41,7 @@ class TicketWorkflowState(TypedDict, total=False):
     memory_context: dict[str, Any]
     policy_answer: dict[str, Any]
     action_proposal: dict[str, Any]
+    human_decision: dict[str, Any]
     route: str
     status: str
     final_message: str
@@ -60,6 +64,20 @@ class WorkflowCheckpointStore:
         return str(path)
 
 
+class NativeCheckpointStore:
+    """Durable LangGraph SQLite checkpointer plus a stable thread config."""
+
+    def __init__(self, path: Path | None = None):
+        settings = get_settings()
+        self.path = Path(path or (PROJECT_ROOT / settings.runtime_root / "workflow_checkpoints.sqlite"))
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.conn = sqlite3.connect(str(self.path), check_same_thread=False)
+        self.saver = SqliteSaver(self.conn)
+
+    def config(self, run_id: str) -> dict[str, dict[str, str]]:
+        return {"configurable": {"thread_id": run_id}}
+
+
 class WorkflowDeps:
     def __init__(
         self,
@@ -70,6 +88,7 @@ class WorkflowDeps:
         policy_index: PolicyIndex | None = None,
         policy_agent: PolicyAgent | None = None,
         checkpointer: WorkflowCheckpointStore | None = None,
+        native_checkpointer: NativeCheckpointStore | None = None,
     ):
         self.client = client or LLMClient()
         self.repo = repo or get_repository()
@@ -79,6 +98,7 @@ class WorkflowDeps:
             self.policy_index.build(recreate=False)
         self.policy_agent = policy_agent or PolicyAgent(HybridPolicyRetriever(self.policy_index))
         self.checkpointer = checkpointer or WorkflowCheckpointStore()
+        self.native_checkpointer = native_checkpointer or NativeCheckpointStore()
 
 
 def _checkpoint(deps: WorkflowDeps, node: str, state: TicketWorkflowState) -> TicketWorkflowState:
@@ -173,7 +193,16 @@ def build_workflow(deps: WorkflowDeps | None = None):
     def human_interrupt_node(state: TicketWorkflowState) -> TicketWorkflowState:
         proposal = ActionProposal.model_validate(state["action_proposal"])
         ticket = SupportTicket.model_validate(state["ticket"])
-        if state.get("execute_actions", False):
+        decision = interrupt({
+            "run_id": state["run_id"],
+            "customer_ref": state["customer_ref"],
+            "order_ref": ticket.order_ref,
+            "trigger": proposal.tool_args.get("trigger") or proposal.reason_code or "human_review",
+            "recommended_action": proposal.recommended_action.value,
+            "explanation": proposal.explanation,
+        })
+        approved = isinstance(decision, dict) and decision.get("action") == "approved"
+        if approved and state.get("execute_actions", False):
             proposal = plan_action(
                 deps.repo,
                 ticket,
@@ -181,11 +210,13 @@ def build_workflow(deps: WorkflowDeps | None = None):
                 today=date.fromisoformat(state["today"]),
                 execute=True,
             )
-        final = "Human approval required before resolution."
+        status = "human_approved_executed" if proposal.executed else "human_approval_required"
+        final = "Human approved and action executed." if proposal.executed else "Human approval required before resolution."
         next_state: TicketWorkflowState = {
             **state,
             "route": "human_interrupt",
-            "status": "human_approval_required",
+            "status": status,
+            "human_decision": decision if isinstance(decision, dict) else {"action": "pending"},
             "action_proposal": proposal.model_dump(mode="json"),
             "final_message": final,
         }
@@ -235,7 +266,7 @@ def build_workflow(deps: WorkflowDeps | None = None):
     graph.add_edge("missing_info", END)
     graph.add_edge("human_interrupt", END)
     graph.add_edge("auto_execute", END)
-    return graph.compile()
+    return graph.compile(checkpointer=deps.native_checkpointer.saver)
 
 
 def run_ticket_workflow(
@@ -248,6 +279,7 @@ def run_ticket_workflow(
     execute_actions: bool = False,
     deps: WorkflowDeps | None = None,
 ) -> TicketWorkflowState:
+    deps = deps or WorkflowDeps()
     app = build_workflow(deps)
     initial: TicketWorkflowState = {
         "run_id": run_id,
@@ -258,4 +290,15 @@ def run_ticket_workflow(
         "execute_actions": execute_actions,
         "checkpoints": [],
     }
-    return app.invoke(initial)
+    return app.invoke(initial, deps.native_checkpointer.config(run_id))
+
+
+def resume_ticket_workflow(
+    *,
+    run_id: str,
+    decision: dict[str, Any],
+    deps: WorkflowDeps | None = None,
+) -> TicketWorkflowState:
+    deps = deps or WorkflowDeps()
+    app = build_workflow(deps)
+    return app.invoke(Command(resume=decision), deps.native_checkpointer.config(run_id))

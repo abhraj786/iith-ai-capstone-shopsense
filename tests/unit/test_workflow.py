@@ -15,7 +15,13 @@ from capstone.settings import PROJECT_ROOT, Settings, get_settings
 from capstone.tools import lookups
 from capstone.tools.calculators import delivered_on
 from capstone.tools.repository import Repository
-from capstone.workflow.graph import WorkflowCheckpointStore, WorkflowDeps, run_ticket_workflow
+from capstone.workflow.graph import (
+    NativeCheckpointStore,
+    WorkflowCheckpointStore,
+    WorkflowDeps,
+    resume_ticket_workflow,
+    run_ticket_workflow,
+)
 
 
 def _client(output: dict) -> LLMClient:
@@ -38,6 +44,7 @@ def _deps(tmp_path, output: dict) -> tuple[WorkflowDeps, Repository]:
         policy_index=policy_index,
         policy_agent=PolicyAgent(HybridPolicyRetriever(policy_index)),
         checkpointer=WorkflowCheckpointStore(tmp_path / "checkpoints"),
+        native_checkpointer=NativeCheckpointStore(tmp_path / "workflow.sqlite"),
     )
     return deps, repo
 
@@ -115,7 +122,7 @@ def test_m5_interrupts_angry_legal_ticket_for_human(tmp_path):
     }
     deps, _ = _deps(tmp_path, output)
 
-    result = run_ticket_workflow(
+    interrupted = run_ticket_workflow(
         raw_text="Refund KW-O-000950 or I will file a legal complaint.",
         channel="email",
         customer_ref="KW-C-00285",
@@ -125,10 +132,58 @@ def test_m5_interrupts_angry_legal_ticket_for_human(tmp_path):
         deps=deps,
     )
 
+    assert "__interrupt__" in interrupted
+    payload = interrupted["__interrupt__"][0].value
+    assert payload["trigger"] == "legal_or_regulatory"
+    assert payload["recommended_action"] == "human_review"
+
+    result = resume_ticket_workflow(
+        run_id="legal-human",
+        decision={"action": "rejected", "note": "Legal team must review."},
+        deps=deps,
+    )
+
     assert result["status"] == "human_approval_required"
     assert result["route"] == "human_interrupt"
+    assert result["human_decision"]["action"] == "rejected"
     assert result["action_proposal"]["recommended_action"] == "human_review"
     assert result["action_proposal"]["tool_args"]["trigger"] == "legal_or_regulatory"
     assert result["memory_context"]["ticket_count"] == 1
     assert result["policy_answer"]["grounded"]
     assert len(result["checkpoints"]) >= 5
+
+
+def test_m5_can_resume_human_approval_and_execute_queue(tmp_path):
+    output = {
+        "issue_type": "refund_request",
+        "order_ref": "KW-O-000950",
+        "sentiment": "angry",
+        "urgency": "critical",
+        "claimed_amount_inr": 6499,
+        "contact_number": 2,
+        "escalation_signals": ["legal_or_regulatory"],
+        "prompt_injection_suspected": False,
+        "missing_fields": [],
+        "summary": "Customer demands a refund and threatens legal action.",
+    }
+    deps, _ = _deps(tmp_path, output)
+    run_ticket_workflow(
+        raw_text="Refund KW-O-000950 or I will file a legal complaint.",
+        channel="email",
+        customer_ref="KW-C-00285",
+        today="2026-03-10",
+        run_id="legal-approved",
+        execute_actions=True,
+        deps=deps,
+    )
+
+    result = resume_ticket_workflow(
+        run_id="legal-approved",
+        decision={"action": "approved", "approved_by": "legal_ops", "note": "Queue for legal desk."},
+        deps=deps,
+    )
+
+    assert result["status"] == "human_approved_executed"
+    assert result["action_proposal"]["executed"]
+    assert result["action_proposal"]["tool_result"]["routes_to"] == "legal_desk"
+    assert (tmp_path / "workflow.sqlite").exists()
