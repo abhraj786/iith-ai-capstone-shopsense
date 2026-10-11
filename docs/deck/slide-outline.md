@@ -1,6 +1,14 @@
-# ShopSense M1-M5 Deck Outline
+# ShopSense Deck Outline
 
 This deck evolves with the repository milestone by milestone.
+
+Keep one presentation file only:
+
+```text
+docs/deck/iith-ai-capstone-shopsense.pptx
+```
+
+Update the same deck for each milestone instead of creating milestone-specific copies.
 
 ## Current Scope
 
