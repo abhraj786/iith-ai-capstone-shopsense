@@ -7,8 +7,10 @@ from datetime import date
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
+from uuid import uuid4
 
 from pydantic import ValidationError
 
@@ -21,7 +23,14 @@ from capstone.rag.hybrid import HybridPolicyRetriever
 from capstone.rag.policy_index import PolicyIndex
 from capstone.schemas.intake import SupportTicket
 from capstone.settings import PROJECT_ROOT, get_settings
+from capstone.tools import lookups
+from capstone.tools.calculators import delivered_on
 from capstone.tools.repository import Repository, get_repository
+from capstone.workflow.graph import (
+    WorkflowDeps,
+    resume_ticket_workflow,
+    run_ticket_workflow,
+)
 
 
 DEFAULT_RAW_TEXT = (
@@ -204,7 +213,7 @@ HTML = """<!doctype html>
   <header>
     <div>
       <h1>ShopSense Milestone Workbench</h1>
-      <div class="sub">Run M1 intake and M2 action planning from one local UI. Later milestones can plug into the same output lane.</div>
+      <div class="sub">Run the ShopSense milestones from one local tester UI and inspect each stage.</div>
     </div>
     <div class="sub" id="serverInfo">Local test UI</div>
   </header>
@@ -217,6 +226,7 @@ HTML = """<!doctype html>
           <select id="mode">
             <option value="full">M1 + M2</option>
             <option value="m2">M2 only from JSON</option>
+            <option value="m5">M5 workflow from JSON</option>
           </select>
         </div>
         <div>
@@ -245,8 +255,13 @@ HTML = """<!doctype html>
       <textarea id="ticketJson" spellcheck="false"></textarea>
       <div class="toolbar">
         <button id="runBtn">Run</button>
-        <button class="secondary" id="sampleBtn">Load sample</button>
+        <button class="secondary" id="sampleBtn">Legal sample</button>
+        <button class="secondary" id="autoSampleBtn">Safe sample</button>
         <label class="check"><input id="execute" type="checkbox" /> Execute mutable M2 action</label>
+      </div>
+      <div class="toolbar">
+        <button class="secondary" id="approveBtn" disabled>Approve M5 resume</button>
+        <button class="secondary" id="rejectBtn" disabled>Reject M5 resume</button>
       </div>
       <div id="status" class="status"></div>
     </section>
@@ -270,8 +285,8 @@ HTML = """<!doctype html>
           <pre id="m4Out">{}</pre>
         </div>
         <div class="module">
-          <div class="module-head"><span>Next Milestones</span><span class="badge pending">Reserved</span></div>
-          <pre id="futureOut">M5-M8 outputs will be added here as the repo grows module by module.</pre>
+          <div class="module-head"><span>M5 LangGraph Workflow</span><span class="badge pending" id="m5Badge">Waiting</span></div>
+          <pre id="m5Out">{}</pre>
         </div>
       </div>
     </section>
@@ -284,10 +299,13 @@ HTML = """<!doctype html>
     const m2Out = document.querySelector("#m2Out");
     const m3Out = document.querySelector("#m3Out");
     const m4Out = document.querySelector("#m4Out");
+    const m5Out = document.querySelector("#m5Out");
     const m1Badge = document.querySelector("#m1Badge");
     const m2Badge = document.querySelector("#m2Badge");
     const m3Badge = document.querySelector("#m3Badge");
     const m4Badge = document.querySelector("#m4Badge");
+    const m5Badge = document.querySelector("#m5Badge");
+    let currentRunId = null;
 
     function pretty(value) {
       return JSON.stringify(value ?? {}, null, 2);
@@ -298,27 +316,37 @@ HTML = """<!doctype html>
       statusEl.className = isError ? "status error" : "status";
     }
 
-    async function loadSample() {
-      const res = await fetch("/api/sample");
+    function setResumeEnabled(enabled) {
+      document.querySelector("#approveBtn").disabled = !enabled;
+      document.querySelector("#rejectBtn").disabled = !enabled;
+    }
+
+    async function loadSample(kind = "legal") {
+      const res = await fetch(`/api/sample?kind=${kind}`);
       const data = await res.json();
       rawText.value = data.raw_text;
       ticketJson.value = pretty(data.ticket_json);
       document.querySelector("#customerRef").value = data.customer_ref;
       document.querySelector("#channel").value = data.channel;
       document.querySelector("#today").value = data.today;
+      document.querySelector("#mode").value = kind === "auto" ? "m5" : document.querySelector("#mode").value;
       setStatus("Sample loaded.");
     }
 
     async function run() {
       setStatus("Running...");
+      currentRunId = null;
+      setResumeEnabled(false);
       m1Badge.textContent = "Running";
       m2Badge.textContent = "Waiting";
       m3Badge.textContent = "Waiting";
       m4Badge.textContent = "Waiting";
+      m5Badge.textContent = "Waiting";
       m1Badge.className = "badge pending";
       m2Badge.className = "badge pending";
       m3Badge.className = "badge pending";
       m4Badge.className = "badge pending";
+      m5Badge.className = "badge pending";
       const payload = {
         mode: document.querySelector("#mode").value,
         raw_text: rawText.value,
@@ -351,25 +379,53 @@ HTML = """<!doctype html>
         m2Out.textContent = pretty(data.m2);
         m3Out.textContent = pretty(data.m3);
         m4Out.textContent = pretty(data.m4);
+        m5Out.textContent = pretty(data.m5);
         ticketJson.value = pretty(data.m1);
         m1Badge.textContent = data.mode === "m2" ? "Provided" : "Complete";
-        m2Badge.textContent = "Complete";
-        m3Badge.textContent = "Complete";
-        m4Badge.textContent = "Complete";
+        m2Badge.textContent = data.mode === "m5" ? "Via workflow" : "Complete";
+        m3Badge.textContent = data.mode === "m5" ? "Via workflow" : "Complete";
+        m4Badge.textContent = data.mode === "m5" ? "Via workflow" : "Complete";
+        m5Badge.textContent = data.m5?.interrupted ? "Waiting approval" : (data.mode === "m5" ? "Complete" : "Not run");
         m1Badge.className = "badge";
         m2Badge.className = "badge";
         m3Badge.className = "badge";
         m4Badge.className = "badge";
-        setStatus("Run complete.");
+        m5Badge.className = data.m5?.interrupted ? "badge pending" : "badge";
+        currentRunId = data.m5?.run_id || null;
+        setResumeEnabled(Boolean(data.m5?.interrupted && currentRunId));
+        setStatus(data.m5?.interrupted ? "M5 paused for human approval." : "Run complete.");
       } catch (err) {
         setStatus(String(err), true);
       }
     }
 
-    document.querySelector("#sampleBtn").addEventListener("click", loadSample);
+    async function resume(decision) {
+      if (!currentRunId) return;
+      setStatus("Resuming M5 workflow...");
+      const res = await fetch("/api/resume", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({run_id: currentRunId, decision})
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus(data.error || "Resume failed.", true);
+        return;
+      }
+      m5Out.textContent = pretty(data.m5);
+      m5Badge.textContent = "Complete";
+      m5Badge.className = "badge";
+      setResumeEnabled(false);
+      setStatus("M5 resume complete.");
+    }
+
+    document.querySelector("#sampleBtn").addEventListener("click", () => loadSample("legal"));
+    document.querySelector("#autoSampleBtn").addEventListener("click", () => loadSample("auto"));
     document.querySelector("#runBtn").addEventListener("click", run);
+    document.querySelector("#approveBtn").addEventListener("click", () => resume({action: "approved", approved_by: "tester", note: "Approved from workbench"}));
+    document.querySelector("#rejectBtn").addEventListener("click", () => resume({action: "rejected", approved_by: "tester", note: "Rejected from workbench"}));
     rawText.value = %DEFAULT_TEXT%;
-    loadSample();
+    loadSample("legal");
   </script>
 </body>
 </html>
@@ -399,6 +455,90 @@ def _sample_record() -> dict[str, Any]:
     }
 
 
+def _auto_sample_record() -> dict[str, Any]:
+    repo = get_repository()
+    refunded = {r["order_ref"] for r in repo.rows("refunds") + repo.rows("replacements")}
+    selected: dict[str, Any] | None = None
+    for raw in repo.rows("orders"):
+        order = lookups.get_order(repo, raw["customer_ref"], raw["order_ref"])
+        customer = lookups.get_customer(repo, raw["customer_ref"])
+        delivered = delivered_on(raw)
+        if (
+            order
+            and raw["status"] == "delivered"
+            and delivered is not None
+            and raw["order_ref"] not in refunded
+            and customer.get("automated_refunds_allowed") != "False"
+            and customer.get("serial_refund_requester") != "True"
+            and customer.get("flagged_for_abuse") != "True"
+            and float(raw["order_value_inr"]) <= 2000
+            and int(raw["actual_delivery_days"]) > int(raw["delivery_promise_days"])
+            and delivered <= date(2026, 3, 10)
+        ):
+            selected = order
+            break
+    if not selected:
+        raise RuntimeError("No low-risk late-delivery order found in seed data.")
+    return {
+        "raw_text": f"Please refund order {selected['order_ref']} because the delivery was late.",
+        "customer_ref": selected["customer_ref"],
+        "channel": "email",
+        "today": "2026-03-10",
+        "ticket_json": {
+            "issue_type": "delivery_delay",
+            "order_ref": selected["order_ref"],
+            "sentiment": "calm",
+            "urgency": "normal",
+            "claimed_amount_inr": float(selected["order_value_inr"]),
+            "contact_number": 1,
+            "escalation_signals": [],
+            "prompt_injection_suspected": False,
+            "missing_fields": [],
+            "summary": "Customer requests a refund because the delivery was late.",
+        },
+    }
+
+
+def _client_from_ticket(ticket: SupportTicket) -> LLMClient:
+    payload = ticket.model_dump(mode="json")
+
+    def completion(**kwargs: Any) -> SimpleNamespace:
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps(payload)))]
+        )
+
+    return LLMClient(completion=completion)
+
+
+def _workflow_view(result: dict[str, Any]) -> dict[str, Any]:
+    if "__interrupt__" in result:
+        interrupts = result["__interrupt__"]
+        payloads = [getattr(item, "value", item) for item in interrupts]
+        first = payloads[0] if payloads else {}
+        return {
+            "run_id": first.get("run_id"),
+            "interrupted": True,
+            "status": "paused_for_human",
+            "route": "human_interrupt",
+            "interrupt": first,
+        }
+    checkpoints = result.get("checkpoints", [])
+    return {
+        "run_id": result.get("run_id"),
+        "interrupted": False,
+        "status": result.get("status"),
+        "route": result.get("route"),
+        "final_message": result.get("final_message"),
+        "ticket": result.get("ticket"),
+        "memory_context": result.get("memory_context"),
+        "policy_answer": result.get("policy_answer"),
+        "action_proposal": result.get("action_proposal"),
+        "human_decision": result.get("human_decision"),
+        "checkpoint_count": len(checkpoints),
+        "checkpoints": checkpoints,
+    }
+
+
 def run_pipeline(payload: dict[str, Any], client: LLMClient | None = None,
                  repo: Repository | None = None,
                  memory_store: CustomerMemoryStore | None = None,
@@ -410,9 +550,12 @@ def run_pipeline(payload: dict[str, Any], client: LLMClient | None = None,
         raise ValueError("customer_ref is required")
     today = date.fromisoformat(payload.get("today") or date.today().isoformat())
 
-    if mode == "m2":
-        ticket_text = payload.get("ticket_json") or "{}"
-        ticket = SupportTicket.model_validate_json(ticket_text)
+    if mode in {"m2", "m5"}:
+        ticket_input = payload.get("ticket_json") or "{}"
+        if isinstance(ticket_input, str):
+            ticket = SupportTicket.model_validate_json(ticket_input)
+        else:
+            ticket = SupportTicket.model_validate(ticket_input)
     else:
         raw_text = str(payload.get("raw_text") or "").strip()
         if not raw_text:
@@ -424,6 +567,35 @@ def run_pipeline(payload: dict[str, Any], client: LLMClient | None = None,
             auto_refund_cap_inr=2000,
             repeat_contact_threshold=3,
         )
+
+    if mode == "m5":
+        deps = WorkflowDeps(
+            client=client or _client_from_ticket(ticket),
+            repo=repo,
+            memory_store=memory_store,
+            policy_index=policy_index,
+            policy_agent=policy_agent,
+        )
+        run_id = str(payload.get("run_id") or f"ui-{uuid4().hex[:10]}")
+        result = run_ticket_workflow(
+            raw_text=str(payload.get("raw_text") or ticket.summary),
+            channel=str(payload.get("channel") or "email"),
+            customer_ref=customer_ref,
+            today=today.isoformat(),
+            run_id=run_id,
+            execute_actions=bool(payload.get("execute", False)),
+            deps=deps,
+        )
+        m5 = _workflow_view(dict(result))
+        workflow_ticket = m5.get("ticket") or ticket.model_dump(mode="json")
+        return {
+            "mode": mode,
+            "m1": workflow_ticket,
+            "m2": m5.get("action_proposal") or {},
+            "m3": {"customer_context": m5.get("memory_context") or {}, "policy_hits": []},
+            "m4": m5.get("policy_answer") or {},
+            "m5": m5,
+        }
 
     proposal = plan_action(
         repo or get_repository(),
@@ -464,31 +636,47 @@ def run_pipeline(payload: dict[str, Any], client: LLMClient | None = None,
             "policy_hits": hits,
         },
         "m4": policy_answer.model_dump(mode="json"),
+        "m5": {"status": "not_run", "message": "Switch run mode to M5 workflow from JSON."},
     }
+
+
+def resume_pipeline(payload: dict[str, Any]) -> dict[str, Any]:
+    run_id = str(payload.get("run_id") or "").strip()
+    if not run_id:
+        raise ValueError("run_id is required")
+    decision = payload.get("decision")
+    if not isinstance(decision, dict):
+        raise ValueError("decision must be an object")
+    result = resume_ticket_workflow(run_id=run_id, decision=decision)
+    return {"m5": _workflow_view(dict(result))}
 
 
 class WorkbenchHandler(BaseHTTPRequestHandler):
     server_version = "ShopSenseWorkbench/0.1"
 
     def do_GET(self) -> None:
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
         if path == "/":
             html = HTML.replace("%DEFAULT_TEXT%", json.dumps(DEFAULT_RAW_TEXT))
             self._send(HTTPStatus.OK, html, "text/html; charset=utf-8")
         elif path == "/api/sample":
-            self._send_json(HTTPStatus.OK, _sample_record())
+            kind = parse_qs(parsed.query).get("kind", ["legal"])[0]
+            sample = _auto_sample_record() if kind == "auto" else _sample_record()
+            self._send_json(HTTPStatus.OK, sample)
         else:
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
-        if path != "/api/run":
+        if path not in {"/api/run", "/api/resume"}:
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length) or b"{}")
-            self._send_json(HTTPStatus.OK, run_pipeline(payload))
+            body = resume_pipeline(payload) if path == "/api/resume" else run_pipeline(payload)
+            self._send_json(HTTPStatus.OK, body)
         except ValidationError as exc:
             self._send_json(HTTPStatus.BAD_REQUEST, {"stage": "m2", "error": str(exc)})
         except Exception as exc:

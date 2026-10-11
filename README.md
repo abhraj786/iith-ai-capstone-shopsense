@@ -55,7 +55,7 @@ Expected current result:
 
 ## Run Local Workbench UI
 
-Use the workbench to test M1 and M2 together from a browser:
+Use the workbench to test the milestone flow from a browser:
 
 ```bash
 python -m capstone.workbench.app --port 8765
@@ -67,7 +67,11 @@ Then open:
 http://127.0.0.1:8765
 ```
 
-The UI supports full M1+M2 runs and M2-only runs from pasted `SupportTicket` JSON. Full M1+M2 runs require the same `.env` model configuration used by the M1 evaluation script.
+The UI supports full M1+M2 runs, M2-only runs from pasted `SupportTicket` JSON,
+and M5 workflow runs from JSON. In M5 mode, use the safe sample to see the
+`auto_execute` path and the legal sample to see the `human_interrupt` path, then
+approve or reject the paused workflow from the same screen. Full M1+M2 runs
+require the same `.env` model configuration used by the M1 evaluation script.
 
 Build or refresh the M3/M4 policy index directly:
 
