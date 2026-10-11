@@ -1,18 +1,10 @@
-# ShopSense data placeholder
+# ShopSense Generated Data
 
-Generate or copy the toolkit output into this directory. No generated data is included.
+This directory contains the generated ShopSense data used by the current implementation.
 
-Expected files after generation:
+- `intake/records.jsonl` is used by the M1 intake evaluation.
+- `mock_api/` contains policy and mock operational tables used by deterministic checks.
+- `manifest.json` records generation metadata.
+- `eval/golden_set.json` and `corpus/` are retained for later ShopSense milestones.
 
-- `manifest.json`
-- `corpus/index.json`
-- `corpus/markdown/*.md` and `corpus/pdf/*.pdf`
-- `intake/records.jsonl`
-- `eval/golden_set.json`
-- `mock_api/customers.csv` and `mock_api/customers.json`
-- `mock_api/products.csv` and `mock_api/products.json`
-- `mock_api/orders.csv` and `mock_api/orders.json`
-- `mock_api/shipments.csv` and `mock_api/shipments.json`
-- `mock_api/refunds.csv` and `mock_api/refunds.json`
-
-Preserve originals. Use `runtime/mock_api/` for mutable application state.
+The files are source data. Runtime mutations should go under `runtime/`, not here.

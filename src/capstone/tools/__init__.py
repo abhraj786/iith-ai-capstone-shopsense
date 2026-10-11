@@ -1,1 +1,1 @@
-"""Capstone package scaffold."""
+"""Deterministic ShopSense tool functions."""

@@ -1,5 +1,4 @@
-# Illustrative configuration; settings.py must implement loading and validation.
 domain: shopsense
 data_root: data
 runtime_root: runtime
-# TODO: Add explicit LLM provider/model, request limits and service endpoints.
+llm_model: gemini/gemini-flash-lite-latest

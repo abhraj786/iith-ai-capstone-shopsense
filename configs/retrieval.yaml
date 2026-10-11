@@ -1,3 +1,0 @@
-# TODO: Define corpus format, chunking, embedding provider/model/dimension,
-# Qdrant collection, hybrid search, reranking and evidence requirements.
-# Treat Markdown/PDF versions of the same document as duplicates or separate experiments.

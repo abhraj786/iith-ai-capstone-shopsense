@@ -1,1 +1,1 @@
-"""Capstone package scaffold."""
+"""LLM client helpers for ShopSense."""

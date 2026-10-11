@@ -1,1 +1,1 @@
-"""Capstone package scaffold."""
+"""Typed schemas for ShopSense workflows."""

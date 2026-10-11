@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     runtime_root: Path = Path("runtime")
 
     # LiteLLM model string; provider API keys (e.g. GEMINI_API_KEY) are read by LiteLLM itself.
-    llm_model: str = "gemini/gemini-flash-latest"
+    llm_model: str = "gemini/gemini-flash-lite-latest"
     llm_timeout_s: float = 60.0
     llm_max_retries: int = 2  # re-asks after schema-invalid output
     llm_rate_limit_retries: int = 4

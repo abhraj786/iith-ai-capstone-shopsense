@@ -1,1 +1,1 @@
-"""Capstone package scaffold."""
+"""ShopSense capstone package."""
