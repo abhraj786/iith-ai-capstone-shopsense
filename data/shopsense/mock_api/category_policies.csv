@@ -1,0 +1,9 @@
+category,policy_document,return_window_days,opened_item_returnable,restocking_fee_pct,original_packaging_required,return_pickup_fee_inr,defect_claim_days,warranty_eligible,handling_rule
+Electronics,category-electronics,15,True,15,True,99,15,True,"Items with lithium batteries are collected by surface transport only. A swollen, overheating or smoking battery is a product-safety report, never a routine return."
+Home & Kitchen,category-home-kitchen,30,True,10,False,99,30,True,Cookware and appliances must be cleaned and dry before pickup. Knives and blades are returned in a blade guard or the original sheath.
+Apparel,category-apparel,45,True,0,False,0,45,False,Items must be unworn and unwashed with the tags attached. Innerwear and swimwear are returnable only if defective.
+Beauty,category-beauty,10,False,0,True,99,10,False,"The seal must be intact. Aerosols, perfume and nail polish are flammable and are collected by surface transport only."
+Sports & Outdoors,category-sports-outdoors,30,True,12,False,99,30,True,Helmets and other protective gear are not accepted back once used. Gas canisters and camping fuel are non-returnable.
+Toys,category-toys,20,True,5,True,99,20,True,Toys with button cells are packed so the battery compartment is taped shut. A small part that comes loose is a product-safety report.
+Groceries,category-groceries,,False,0,False,,2,False,"Perishable and chilled items are never collected. A damaged, expired or wrong item is refunded on a photo, without a return."
+Furniture,category-furniture,7,True,20,False,499,7,True,An assembled item counts as opened. Pickup needs two handlers and is booked at least 48 hours ahead.

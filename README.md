@@ -1,3 +1,24 @@
+# ShopSense Applied AI Capstone
+
+This repository contains the ShopSense capstone implementation through M1 intake parsing, with generated ShopSense intake/mock API data committed so evaluators can run the checks from a fresh clone.
+
+## M1 Quickstart
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+python -m pytest tests/unit
+```
+
+To rerun the LLM-backed M1 holdout evaluation, copy `.env.example` to `.env`, add your provider key, then run:
+
+```bash
+python scripts/run_intake_eval.py --n 60 --offset 60 --out evaluation/reports/m1_holdout_n60_v4.json
+```
+
+Latest committed M1 report: `evaluation/reports/m1_holdout_n60_v4.json`.
+
 # Applied AI Capstone Starter
 
 **Applied AI Professional Certification Program · IIT Hyderabad**

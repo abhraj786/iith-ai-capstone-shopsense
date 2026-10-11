@@ -1,0 +1,7 @@
+service_tier,delivery_zone,promise_days
+express,metro,2
+express,non_metro,3
+standard,metro,5
+standard,non_metro,7
+economy,metro,10
+economy,non_metro,10

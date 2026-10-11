@@ -1,0 +1,4 @@
+min_days_late,max_days_late,goodwill_credit_inr
+1,2,0
+3,5,100
+6,,250

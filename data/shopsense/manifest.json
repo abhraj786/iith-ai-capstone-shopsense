@@ -1,0 +1,90 @@
+{
+  "domain": "ShopSense -- Customer Care & Order Operations Assistant",
+  "toolkit_version": "1.0.4",
+  "complete": true,
+  "generated_at": "2026-10-11T05:23:28.757680+00:00",
+  "seed": 42,
+  "generator": {
+    "provider": "gemini",
+    "model": "gemini-flash-latest"
+  },
+  "assets": {
+    "mock_api": {
+      "tables": {
+        "customers": 500,
+        "products": 600,
+        "orders": 1500,
+        "shipments": 1500,
+        "refunds": 320,
+        "policy_limits": 15,
+        "category_policies": 8,
+        "refund_authority": 5,
+        "refund_rules": 7,
+        "refund_processing_times": 5,
+        "delivery_services": 6,
+        "delay_compensation": 3,
+        "escalation_triggers": 8,
+        "carriers": 5,
+        "sellers": 120,
+        "order_fulfilment": 1500,
+        "goodwill_credits": 155,
+        "replacements": 63,
+        "customer_profiles": 500,
+        "support_tickets": 861
+      },
+      "dir": "mock_api/"
+    },
+    "corpus": {
+      "count": 14,
+      "index": "corpus/index.json"
+    },
+    "intake": {
+      "count": 200,
+      "path": "intake/records.jsonl",
+      "llm_calls": 10
+    },
+    "eval": {
+      "count": 20,
+      "by_category": {
+        "guardrail": 4,
+        "injection": 1,
+        "multi_hop": 6,
+        "factual": 9
+      },
+      "path": "eval/golden_set.json",
+      "grounded_in_corpus": true,
+      "distribution_warnings": [
+        "no 'unanswerable' cases -- the guide expects some; re-run `--only eval` or add them by hand"
+      ]
+    }
+  },
+  "public_sources_referenced": [
+    {
+      "name": "Bitext retail/e-commerce LLM chatbot training dataset",
+      "url": "https://huggingface.co/datasets/bitext/Bitext-retail-ecommerce-llm-chatbot-training-dataset",
+      "use": "27 real support intents across ORDER/DELIVERY/PRODUCT/REFUND categories, 8.47M tokens -- intent taxonomy for M1",
+      "licence": "CDLA-Sharing 1.0 (attribution + share-alike)"
+    },
+    {
+      "name": "Olist Brazilian E-Commerce Public Dataset",
+      "url": "https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce",
+      "use": "Nine-table relational order database: orders, items, payments, reviews, sellers -- backing data for the M2 mock APIs",
+      "licence": "CC BY-NC-SA 4.0 (non-commercial)"
+    },
+    {
+      "name": "Customer Support on Twitter",
+      "url": "https://www.kaggle.com/datasets/thoughtvector/customer-support-on-twitter",
+      "use": "~3M real support tweets -- genuinely angry customers, which synthetic generation systematically under-produces",
+      "licence": "Check Kaggle dataset terms"
+    },
+    {
+      "name": "Amazon Reviews 2023 (McAuley Lab)",
+      "url": "https://huggingface.co/datasets/McAuley-Lab/Amazon-Reviews-2023",
+      "use": "Product metadata and review text for catalogue realism",
+      "licence": "Research use -- check dataset card"
+    }
+  ],
+  "synthetic": true,
+  "contains_real_personal_data": false,
+  "notice": "All records in this corpus are synthetic. Any resemblance to a real person, company, contract, or patient is coincidental. Public datasets listed under public_sources_referenced were used for schema and distribution grounding only; consult each source's own licence before redistributing anything derived from it."
+}

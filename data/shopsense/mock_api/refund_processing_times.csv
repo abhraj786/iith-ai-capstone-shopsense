@@ -1,0 +1,6 @@
+payment_method,refund_destination,promise,max_business_days
+card,original card,5-7 business days,7
+upi,source UPI account,3 business days,3
+wallet,Kartway wallet,24 hours,1
+cod,bank account the customer provides,10 business days,10
+netbanking,source bank account,5-7 business days,7

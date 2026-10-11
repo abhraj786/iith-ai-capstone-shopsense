@@ -1,0 +1,98 @@
+[
+  {
+    "category": "Electronics",
+    "policy_document": "category-electronics",
+    "return_window_days": 15,
+    "opened_item_returnable": true,
+    "restocking_fee_pct": 15,
+    "original_packaging_required": true,
+    "return_pickup_fee_inr": 99,
+    "defect_claim_days": 15,
+    "warranty_eligible": true,
+    "handling_rule": "Items with lithium batteries are collected by surface transport only. A swollen, overheating or smoking battery is a product-safety report, never a routine return."
+  },
+  {
+    "category": "Home & Kitchen",
+    "policy_document": "category-home-kitchen",
+    "return_window_days": 30,
+    "opened_item_returnable": true,
+    "restocking_fee_pct": 10,
+    "original_packaging_required": false,
+    "return_pickup_fee_inr": 99,
+    "defect_claim_days": 30,
+    "warranty_eligible": true,
+    "handling_rule": "Cookware and appliances must be cleaned and dry before pickup. Knives and blades are returned in a blade guard or the original sheath."
+  },
+  {
+    "category": "Apparel",
+    "policy_document": "category-apparel",
+    "return_window_days": 45,
+    "opened_item_returnable": true,
+    "restocking_fee_pct": 0,
+    "original_packaging_required": false,
+    "return_pickup_fee_inr": 0,
+    "defect_claim_days": 45,
+    "warranty_eligible": false,
+    "handling_rule": "Items must be unworn and unwashed with the tags attached. Innerwear and swimwear are returnable only if defective."
+  },
+  {
+    "category": "Beauty",
+    "policy_document": "category-beauty",
+    "return_window_days": 10,
+    "opened_item_returnable": false,
+    "restocking_fee_pct": 0,
+    "original_packaging_required": true,
+    "return_pickup_fee_inr": 99,
+    "defect_claim_days": 10,
+    "warranty_eligible": false,
+    "handling_rule": "The seal must be intact. Aerosols, perfume and nail polish are flammable and are collected by surface transport only."
+  },
+  {
+    "category": "Sports & Outdoors",
+    "policy_document": "category-sports-outdoors",
+    "return_window_days": 30,
+    "opened_item_returnable": true,
+    "restocking_fee_pct": 12,
+    "original_packaging_required": false,
+    "return_pickup_fee_inr": 99,
+    "defect_claim_days": 30,
+    "warranty_eligible": true,
+    "handling_rule": "Helmets and other protective gear are not accepted back once used. Gas canisters and camping fuel are non-returnable."
+  },
+  {
+    "category": "Toys",
+    "policy_document": "category-toys",
+    "return_window_days": 20,
+    "opened_item_returnable": true,
+    "restocking_fee_pct": 5,
+    "original_packaging_required": true,
+    "return_pickup_fee_inr": 99,
+    "defect_claim_days": 20,
+    "warranty_eligible": true,
+    "handling_rule": "Toys with button cells are packed so the battery compartment is taped shut. A small part that comes loose is a product-safety report."
+  },
+  {
+    "category": "Groceries",
+    "policy_document": "category-groceries",
+    "return_window_days": null,
+    "opened_item_returnable": false,
+    "restocking_fee_pct": 0,
+    "original_packaging_required": false,
+    "return_pickup_fee_inr": null,
+    "defect_claim_days": 2,
+    "warranty_eligible": false,
+    "handling_rule": "Perishable and chilled items are never collected. A damaged, expired or wrong item is refunded on a photo, without a return."
+  },
+  {
+    "category": "Furniture",
+    "policy_document": "category-furniture",
+    "return_window_days": 7,
+    "opened_item_returnable": true,
+    "restocking_fee_pct": 20,
+    "original_packaging_required": false,
+    "return_pickup_fee_inr": 499,
+    "defect_claim_days": 7,
+    "warranty_eligible": true,
+    "handling_rule": "An assembled item counts as opened. Pickup needs two handlers and is booked at least 48 hours ahead."
+  }
+]

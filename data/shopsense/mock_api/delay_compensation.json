@@ -1,0 +1,17 @@
+[
+  {
+    "min_days_late": 1,
+    "max_days_late": 2,
+    "goodwill_credit_inr": 0
+  },
+  {
+    "min_days_late": 3,
+    "max_days_late": 5,
+    "goodwill_credit_inr": 100
+  },
+  {
+    "min_days_late": 6,
+    "max_days_late": null,
+    "goodwill_credit_inr": 250
+  }
+]

@@ -1,0 +1,8 @@
+reason_code,refund_pct,restocking_fee_applies,return_shipping_paid_by,return_required,applies_when
+damaged,100,False,kartway,True,"The item arrived damaged and was reported, with a photo, within the category's defect claim period. Groceries are refunded on the photo, without a return"
+wrong_item,100,False,kartway,True,A different item from the one ordered was delivered
+quality,100,False,kartway,True,The item is defective or not as described
+not_delivered,100,False,none,False,"The parcel was declared lost in transit, or a delivery dispute was upheld"
+late_delivery,100,False,kartway,True,The order arrived after the promised date and the customer refuses or returns it. A customer who keeps the order gets the delay credit instead
+changed_mind,100,True,customer,True,"The customer no longer wants the item. Accepted only inside the category's return window. The customer pays for the return through the category's pickup fee, which is nil for Apparel"
+cancelled_before_dispatch,100,False,none,False,The order was cancelled before it shipped

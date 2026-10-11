@@ -222,10 +222,15 @@ __marimo__/
 !/data/**/
 !/data/**/.gitkeep
 !/data/**/README.md
+!/data/shopsense/manifest.json
+!/data/shopsense/intake/records.jsonl
+!/data/shopsense/mock_api/*.csv
+!/data/shopsense/mock_api/*.json
 /runtime/**
 !/runtime/**/
 !/runtime/**/.gitkeep
 !/runtime/**/README.md
 /evaluation/reports/*
 !/evaluation/reports/.gitkeep
+!/evaluation/reports/m1_holdout_n60_v4.json
 .DS_Store

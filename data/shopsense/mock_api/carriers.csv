@@ -1,0 +1,6 @@
+carrier,claim_response_business_days,tracking_url,claims_contact
+Bluedart,2,https://track.kartway.example/bluedart/{tracking_id},claims@bluedart.example
+Delhivery,3,https://track.kartway.example/delhivery/{tracking_id},claims@delhivery.example
+Ecom Express,3,https://track.kartway.example/ecom-express/{tracking_id},claims@ecomexpress.example
+IndiaPost,5,https://track.kartway.example/indiapost/{tracking_id},claims@indiapost.example
+XpressBees,4,https://track.kartway.example/xpressbees/{tracking_id},claims@xpressbees.example

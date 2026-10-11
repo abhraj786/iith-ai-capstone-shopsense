@@ -1,0 +1,9 @@
+trigger,description,routes_to
+human_requested,The customer explicitly asks for a human,agent
+angry_or_abusive,"Abusive language, or a customer who is plainly angry",team_lead
+repeat_contact,Third or later contact about the same order,team_lead
+legal_or_regulatory,"Any mention of legal action, a consumer forum or a regulator",legal_desk
+product_safety,"Any mention of physical harm or a product-safety hazard such as overheating, smoke, fire or injury",safety_desk
+refund_above_auto_cap,"A refund or replacement worth more than 2,000 rupees",refund_approver
+account_under_review,"A refund, return or replacement request from an account that is flagged or under review for return abuse",fraud_desk
+delivery_dispute,The courier shows the parcel as delivered and the customer says it never arrived,agent

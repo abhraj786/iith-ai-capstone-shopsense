@@ -1,0 +1,16 @@
+limit,value,unit,document,description
+standard_return_window_days,30,days,returns-policy,Return window where a category sets no other
+auto_refund_cap_inr,2000,INR,refund-authority,Largest refund or replacement the assistant may approve alone
+goodwill_cap_per_order_inr,500,INR,refund-authority,"Largest goodwill credit on one order; one credit per order, never with a full refund"
+lost_in_transit_days,10,days,shipping-policy,Days past the promised date after which an undelivered shipped order is lost in transit
+delivery_dispute_report_days,3,days,shipping-policy,Days from a delivered scan in which the customer may dispute it
+delivery_dispute_investigation_business_days,5,business days,shipping-policy,Time allowed for the carrier investigation of a dispute
+repeat_contact_threshold,3,contacts,escalation-tone,Contact number on the same order at which a human takes over
+return_rate_review_threshold,0.4,ratio,fraud-abuse,Return rate at or above which an account goes for review
+return_rate_min_orders,10,orders,fraud-abuse,Lifetime orders needed before the return-rate threshold applies
+serial_refund_requests,3,requests,fraud-abuse,Refund requests inside the serial window that put an account under review
+serial_refund_window_days,90,days,fraud-abuse,Window over which refund requests are counted
+warranty_replace_within_days,30,days,warranty-policy,"A failure this soon after delivery is replaced, not repaired"
+warranty_replace_below_inr,1500,INR,warranty-policy,"Items that cost less than this are replaced, not repaired"
+repair_turnaround_business_days,14,business days,warranty-policy,Time allowed to complete a warranty repair
+replacement_dispatch_business_days,3,business days,warranty-policy,Time allowed to dispatch an approved replacement

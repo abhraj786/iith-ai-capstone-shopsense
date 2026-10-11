@@ -1,0 +1,32 @@
+[
+  {
+    "service_tier": "express",
+    "delivery_zone": "metro",
+    "promise_days": 2
+  },
+  {
+    "service_tier": "express",
+    "delivery_zone": "non_metro",
+    "promise_days": 3
+  },
+  {
+    "service_tier": "standard",
+    "delivery_zone": "metro",
+    "promise_days": 5
+  },
+  {
+    "service_tier": "standard",
+    "delivery_zone": "non_metro",
+    "promise_days": 7
+  },
+  {
+    "service_tier": "economy",
+    "delivery_zone": "metro",
+    "promise_days": 10
+  },
+  {
+    "service_tier": "economy",
+    "delivery_zone": "non_metro",
+    "promise_days": 10
+  }
+]

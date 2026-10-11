@@ -1,0 +1,32 @@
+[
+  {
+    "carrier": "Bluedart",
+    "claim_response_business_days": 2,
+    "tracking_url": "https://track.kartway.example/bluedart/{tracking_id}",
+    "claims_contact": "claims@bluedart.example"
+  },
+  {
+    "carrier": "Delhivery",
+    "claim_response_business_days": 3,
+    "tracking_url": "https://track.kartway.example/delhivery/{tracking_id}",
+    "claims_contact": "claims@delhivery.example"
+  },
+  {
+    "carrier": "Ecom Express",
+    "claim_response_business_days": 3,
+    "tracking_url": "https://track.kartway.example/ecom-express/{tracking_id}",
+    "claims_contact": "claims@ecomexpress.example"
+  },
+  {
+    "carrier": "IndiaPost",
+    "claim_response_business_days": 5,
+    "tracking_url": "https://track.kartway.example/indiapost/{tracking_id}",
+    "claims_contact": "claims@indiapost.example"
+  },
+  {
+    "carrier": "XpressBees",
+    "claim_response_business_days": 4,
+    "tracking_url": "https://track.kartway.example/xpressbees/{tracking_id}",
+    "claims_contact": "claims@xpressbees.example"
+  }
+]

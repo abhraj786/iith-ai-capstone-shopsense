@@ -1,0 +1,6 @@
+approver,role,max_refund_inr,is_human
+auto,"Automated assistant, no human involved",2000,False
+agent,Support agent,2000,True
+team_lead,Team lead,10000,True
+ops_manager,Operations manager,50000,True
+finance,Finance,,True

@@ -1,0 +1,121 @@
+seller_id,seller_name,city,fulfilment,seller_rating,onboarded_on,status,warranty_handled_by
+KW-S-0001,"Choudhury, Bakshi and Maharaj",Rajahmundry,kartway_fulfilled,3.8,2020-03-17,active,kartway_warranty_desk
+KW-S-0002,Chaudry Ltd,Gudivada,kartway_fulfilled,4.0,2020-07-21,active,kartway_warranty_desk
+KW-S-0003,Balay-Balan,Bellary,kartway_fulfilled,3.2,2026-03-06,active,kartway_warranty_desk
+KW-S-0004,Tiwari PLC,Kishanganj,seller_fulfilled,3.7,2024-03-16,active,manufacturer_service_network
+KW-S-0005,Saini and Sons,Giridih,seller_fulfilled,3.7,2021-08-23,active,manufacturer_service_network
+KW-S-0006,Ahuja-Dutta,Mau,kartway_fulfilled,4.4,2023-06-20,active,kartway_warranty_desk
+KW-S-0007,Dugal-Kale,Kota,kartway_fulfilled,4.2,2023-02-18,active,kartway_warranty_desk
+KW-S-0008,Rai Inc,Hapur,kartway_fulfilled,3.7,2026-04-01,active,kartway_warranty_desk
+KW-S-0009,"Lalla, Bassi and Sharaf",Burhanpur,kartway_fulfilled,3.8,2025-01-30,active,kartway_warranty_desk
+KW-S-0010,Memon Ltd,Gangtok,seller_fulfilled,4.1,2021-11-16,active,manufacturer_service_network
+KW-S-0011,Boase Inc,Ramagundam,kartway_fulfilled,4.1,2024-01-06,active,kartway_warranty_desk
+KW-S-0012,Kaul Inc,Alwar,kartway_fulfilled,3.1,2021-10-12,active,kartway_warranty_desk
+KW-S-0013,Patla-Gaba,Raichur,kartway_fulfilled,3.4,2023-04-27,active,kartway_warranty_desk
+KW-S-0014,Loke Ltd,Narasaraopet,kartway_fulfilled,3.4,2021-10-08,active,kartway_warranty_desk
+KW-S-0015,"Garg, Walla and Konda",Surendranagar Dudhrej,kartway_fulfilled,3.5,2021-09-08,active,kartway_warranty_desk
+KW-S-0016,Madan-Kanda,Pimpri-Chinchwad,kartway_fulfilled,3.0,2020-10-23,active,kartway_warranty_desk
+KW-S-0017,Balay LLC,Agartala,seller_fulfilled,4.3,2022-01-19,active,manufacturer_service_network
+KW-S-0018,Kakar PLC,Rajpur Sonarpur,kartway_fulfilled,4.8,2023-11-18,active,kartway_warranty_desk
+KW-S-0019,"Tata, Randhawa and Shanker",Bilaspur,seller_fulfilled,4.5,2021-11-10,active,manufacturer_service_network
+KW-S-0020,Koshy Ltd,Bhimavaram,kartway_fulfilled,3.6,2024-03-17,active,kartway_warranty_desk
+KW-S-0021,Rastogi-Pathak,Durgapur,kartway_fulfilled,4.8,2021-01-12,active,kartway_warranty_desk
+KW-S-0022,"Tak, Chand and Batta",Jamnagar,kartway_fulfilled,4.4,2020-09-20,suspended,kartway_warranty_desk
+KW-S-0023,"Dutta, Sami and Bhatt",Eluru,kartway_fulfilled,3.3,2023-09-02,active,kartway_warranty_desk
+KW-S-0024,"Sidhu, Wadhwa and Krishnamurthy",Raipur,seller_fulfilled,4.8,2021-02-03,active,manufacturer_service_network
+KW-S-0025,"Yadav, Loke and Oak",Durg,kartway_fulfilled,4.5,2020-03-18,active,kartway_warranty_desk
+KW-S-0026,Dugar-Setty,Firozabad,kartway_fulfilled,3.8,2023-07-20,active,kartway_warranty_desk
+KW-S-0027,"Gokhale, Tripathi and Cherian",Guna,seller_fulfilled,3.5,2024-11-03,active,manufacturer_service_network
+KW-S-0028,"Issac, Dua and Prakash",Panvel,kartway_fulfilled,4.2,2023-07-11,active,kartway_warranty_desk
+KW-S-0029,"Acharya, Naik and Suresh",Gorakhpur,seller_fulfilled,3.1,2023-12-16,active,manufacturer_service_network
+KW-S-0030,Mohanty-Khatri,New Delhi,kartway_fulfilled,4.2,2022-11-18,active,kartway_warranty_desk
+KW-S-0031,"Brar, Chada and Sunder",Katihar,seller_fulfilled,4.0,2020-11-29,active,manufacturer_service_network
+KW-S-0032,Dave Ltd,Jamalpur,kartway_fulfilled,4.8,2021-04-02,active,kartway_warranty_desk
+KW-S-0033,Lanka PLC,Rajpur Sonarpur,kartway_fulfilled,4.2,2023-06-02,active,kartway_warranty_desk
+KW-S-0034,"Iyer, Muni and Rastogi",Bahraich,kartway_fulfilled,4.5,2024-09-11,active,kartway_warranty_desk
+KW-S-0035,"Seth, Dara and Kota",Rajkot,kartway_fulfilled,3.6,2023-11-11,active,kartway_warranty_desk
+KW-S-0036,Bail-Karpe,Chennai,kartway_fulfilled,3.7,2024-06-10,active,kartway_warranty_desk
+KW-S-0037,Bhargava and Sons,Patna,seller_fulfilled,3.2,2020-03-26,active,manufacturer_service_network
+KW-S-0038,Bobal-Varkey,Alwar,kartway_fulfilled,3.9,2025-11-22,suspended,kartway_warranty_desk
+KW-S-0039,"Sunder, Kala and Zacharia",Aurangabad,seller_fulfilled,4.5,2022-01-29,active,manufacturer_service_network
+KW-S-0040,"Solanki, Kibe and Solanki",Jhansi,seller_fulfilled,4.5,2020-11-15,active,manufacturer_service_network
+KW-S-0041,Chatterjee Ltd,Raichur,seller_fulfilled,4.9,2024-03-08,active,manufacturer_service_network
+KW-S-0042,Roy-Sibal,Navi Mumbai,kartway_fulfilled,4.1,2020-09-16,active,kartway_warranty_desk
+KW-S-0043,Rau Ltd,Moradabad,kartway_fulfilled,4.9,2020-10-27,active,kartway_warranty_desk
+KW-S-0044,Handa and Sons,Kolhapur,kartway_fulfilled,4.7,2023-01-03,active,kartway_warranty_desk
+KW-S-0045,Goswami-Mallick,Kulti,kartway_fulfilled,4.2,2021-05-10,active,kartway_warranty_desk
+KW-S-0046,Savant PLC,Dhanbad,seller_fulfilled,4.4,2024-12-25,active,manufacturer_service_network
+KW-S-0047,"Zachariah, Aurora and Chander",Rourkela,seller_fulfilled,3.1,2022-10-18,active,manufacturer_service_network
+KW-S-0048,Sunder-Srivastava,Rewa,kartway_fulfilled,4.1,2023-12-16,suspended,kartway_warranty_desk
+KW-S-0049,Gala Group,Pali,kartway_fulfilled,4.6,2025-10-30,active,kartway_warranty_desk
+KW-S-0050,Sha-Mangal,Miryalaguda,seller_fulfilled,4.3,2020-05-15,suspended,manufacturer_service_network
+KW-S-0051,"Sur, Dubey and Gupta",Bellary,seller_fulfilled,3.1,2025-09-15,active,manufacturer_service_network
+KW-S-0052,Bhat Ltd,Howrah,seller_fulfilled,3.6,2022-04-10,active,manufacturer_service_network
+KW-S-0053,Sood PLC,Howrah,seller_fulfilled,3.4,2023-10-25,active,manufacturer_service_network
+KW-S-0054,"Buch, Grewal and Biswas",Noida,kartway_fulfilled,4.2,2024-07-16,suspended,kartway_warranty_desk
+KW-S-0055,Dar-Koshy,Udupi,seller_fulfilled,4.8,2025-11-07,active,manufacturer_service_network
+KW-S-0056,Saini Ltd,Bhilwara,seller_fulfilled,3.9,2025-06-20,active,manufacturer_service_network
+KW-S-0057,Murthy and Sons,Tenali,seller_fulfilled,3.4,2020-11-01,active,manufacturer_service_network
+KW-S-0058,Mital Group,Srinagar,kartway_fulfilled,3.6,2025-11-12,active,kartway_warranty_desk
+KW-S-0059,Shanker PLC,Srinagar,kartway_fulfilled,3.0,2021-01-14,active,kartway_warranty_desk
+KW-S-0060,"Kala, Toor and Lanka",Karnal,kartway_fulfilled,4.4,2021-11-12,active,kartway_warranty_desk
+KW-S-0061,Konda LLC,Sangli-Miraj & Kupwad,seller_fulfilled,3.7,2021-11-08,active,manufacturer_service_network
+KW-S-0062,Mittal-Wadhwa,Begusarai,seller_fulfilled,4.7,2025-03-27,active,manufacturer_service_network
+KW-S-0063,Chawla-Desai,Bhiwandi,kartway_fulfilled,3.4,2024-03-22,active,kartway_warranty_desk
+KW-S-0064,Dugal LLC,Mahbubnagar,seller_fulfilled,3.2,2020-07-28,active,manufacturer_service_network
+KW-S-0065,Oza and Sons,Dibrugarh,kartway_fulfilled,4.7,2025-01-20,active,kartway_warranty_desk
+KW-S-0066,Krishnamurthy-Behl,Bhusawal,kartway_fulfilled,4.8,2023-09-03,active,kartway_warranty_desk
+KW-S-0067,Basu-Aggarwal,Bikaner,seller_fulfilled,4.5,2023-12-17,suspended,manufacturer_service_network
+KW-S-0068,"Lala, Edwin and Sathe",Kishanganj,kartway_fulfilled,3.0,2025-09-14,active,kartway_warranty_desk
+KW-S-0069,Choudhury Inc,Bongaigaon,kartway_fulfilled,3.6,2024-11-04,active,kartway_warranty_desk
+KW-S-0070,Pingle PLC,Chinsurah,kartway_fulfilled,4.5,2020-02-28,active,kartway_warranty_desk
+KW-S-0071,Barman LLC,Thane,kartway_fulfilled,3.1,2025-11-20,active,kartway_warranty_desk
+KW-S-0072,Kade-Krish,Raichur,kartway_fulfilled,3.9,2020-08-27,active,kartway_warranty_desk
+KW-S-0073,"Ray, Dubey and Khalsa",Belgaum,kartway_fulfilled,3.6,2020-04-03,active,kartway_warranty_desk
+KW-S-0074,Bakshi-Gola,Bulandshahr,kartway_fulfilled,3.7,2023-12-27,active,kartway_warranty_desk
+KW-S-0075,"Kothari, Loke and Dutta",Eluru,kartway_fulfilled,4.6,2025-11-06,active,kartway_warranty_desk
+KW-S-0076,Singhal and Sons,Jaunpur,seller_fulfilled,4.9,2022-02-07,active,manufacturer_service_network
+KW-S-0077,Mody-Kari,Nagpur,kartway_fulfilled,3.0,2023-05-13,active,kartway_warranty_desk
+KW-S-0078,"Hans, Rastogi and Narasimhan",Coimbatore,kartway_fulfilled,4.7,2025-11-22,suspended,kartway_warranty_desk
+KW-S-0079,Panchal-Upadhyay,Jorhat,kartway_fulfilled,3.5,2025-12-23,active,kartway_warranty_desk
+KW-S-0080,Bala-D’Alia,Mangalore,kartway_fulfilled,3.8,2020-03-07,active,kartway_warranty_desk
+KW-S-0081,"Lanka, Barad and Chopra",Hapur,kartway_fulfilled,4.5,2021-06-03,active,kartway_warranty_desk
+KW-S-0082,"Murthy, Sarin and Vaidya",Kharagpur,kartway_fulfilled,4.1,2020-11-27,active,kartway_warranty_desk
+KW-S-0083,"Gupta, Kumar and Basu",Mumbai,seller_fulfilled,4.4,2023-05-05,active,manufacturer_service_network
+KW-S-0084,"Yohannan, Hegde and Patla",Coimbatore,seller_fulfilled,4.7,2022-01-01,active,manufacturer_service_network
+KW-S-0085,"Narayanan, Murthy and Dash",Guna,seller_fulfilled,4.0,2024-02-25,active,manufacturer_service_network
+KW-S-0086,Rege-Narain,Sagar,kartway_fulfilled,3.9,2020-09-28,active,kartway_warranty_desk
+KW-S-0087,"Datta, Handa and Salvi",Akola,kartway_fulfilled,4.5,2024-08-13,active,kartway_warranty_desk
+KW-S-0088,"Mitra, Ravi and Acharya",Baranagar,seller_fulfilled,4.2,2025-04-03,active,manufacturer_service_network
+KW-S-0089,Sani PLC,Kirari Suleman Nagar,kartway_fulfilled,4.1,2022-03-28,active,kartway_warranty_desk
+KW-S-0090,Sathe-Kala,Gulbarga,kartway_fulfilled,3.8,2024-07-07,active,kartway_warranty_desk
+KW-S-0091,"Chad, Mander and Varma",Tiruchirappalli,seller_fulfilled,4.8,2022-03-04,active,manufacturer_service_network
+KW-S-0092,Mukherjee and Sons,Siliguri,kartway_fulfilled,3.2,2025-10-13,active,kartway_warranty_desk
+KW-S-0093,Batra and Sons,Phagwara,seller_fulfilled,4.3,2023-09-22,active,manufacturer_service_network
+KW-S-0094,Shah Group,Yamunanagar,seller_fulfilled,3.4,2022-09-24,active,manufacturer_service_network
+KW-S-0095,Ratta-Kohli,Kolkata,kartway_fulfilled,3.4,2020-10-03,active,kartway_warranty_desk
+KW-S-0096,Sandal and Sons,Kadapa,seller_fulfilled,3.6,2024-08-09,active,manufacturer_service_network
+KW-S-0097,Bedi-Krish,Sirsa,kartway_fulfilled,3.3,2020-07-25,active,kartway_warranty_desk
+KW-S-0098,Shetty Ltd,Mango,seller_fulfilled,3.2,2025-07-09,active,manufacturer_service_network
+KW-S-0099,"Thaman, Sandhu and Sehgal",Fatehpur,kartway_fulfilled,3.3,2026-01-29,active,kartway_warranty_desk
+KW-S-0100,Lad-Kota,Saharsa,kartway_fulfilled,3.8,2022-12-15,active,kartway_warranty_desk
+KW-S-0101,Khare-Maharaj,Solapur,seller_fulfilled,3.9,2026-01-07,active,manufacturer_service_network
+KW-S-0102,"Mangal, Keer and Magar",Imphal,seller_fulfilled,3.4,2025-10-31,active,manufacturer_service_network
+KW-S-0103,"Buch, Devi and Dora",Yamunanagar,seller_fulfilled,3.7,2023-04-12,active,manufacturer_service_network
+KW-S-0104,"Dua, Kala and Bhatt",Vellore,kartway_fulfilled,4.5,2020-04-24,active,kartway_warranty_desk
+KW-S-0105,Shukla-Sagar,Tiruppur,kartway_fulfilled,4.7,2022-12-24,active,kartway_warranty_desk
+KW-S-0106,Ramachandran-Bahri,Morena,seller_fulfilled,3.1,2024-07-31,active,manufacturer_service_network
+KW-S-0107,Pandey LLC,Gurgaon,seller_fulfilled,3.3,2024-02-11,active,manufacturer_service_network
+KW-S-0108,"Kannan, Sura and Kanda",Junagadh,kartway_fulfilled,3.0,2025-05-06,active,kartway_warranty_desk
+KW-S-0109,Balakrishnan-Ramachandran,Machilipatnam,kartway_fulfilled,4.8,2025-10-25,active,kartway_warranty_desk
+KW-S-0110,"Gandhi, Sibal and Datta",Singrauli,seller_fulfilled,4.6,2022-04-04,active,manufacturer_service_network
+KW-S-0111,"Bala, Chacko and Sangha",Surendranagar Dudhrej,kartway_fulfilled,3.1,2025-09-14,active,kartway_warranty_desk
+KW-S-0112,Bedi LLC,Khammam,seller_fulfilled,3.2,2023-05-01,active,manufacturer_service_network
+KW-S-0113,Sha LLC,Nadiad,seller_fulfilled,4.3,2020-05-06,active,manufacturer_service_network
+KW-S-0114,Sama-Krishnan,Nandyal,kartway_fulfilled,4.8,2024-07-14,active,kartway_warranty_desk
+KW-S-0115,Zacharia Inc,Rajahmundry,kartway_fulfilled,3.4,2025-06-15,active,kartway_warranty_desk
+KW-S-0116,"Biswas, Baria and Balasubramanian",Kollam,seller_fulfilled,3.2,2025-03-16,active,manufacturer_service_network
+KW-S-0117,Dua and Sons,Bhalswa Jahangir Pur,seller_fulfilled,4.4,2023-06-19,active,manufacturer_service_network
+KW-S-0118,"Contractor, Kamdar and Shroff",Arrah,kartway_fulfilled,3.7,2020-06-12,active,kartway_warranty_desk
+KW-S-0119,Contractor and Sons,Moradabad,seller_fulfilled,3.7,2022-03-30,active,manufacturer_service_network
+KW-S-0120,"Bal, Muni and Prashad",Davanagere,kartway_fulfilled,4.5,2022-09-12,active,kartway_warranty_desk
