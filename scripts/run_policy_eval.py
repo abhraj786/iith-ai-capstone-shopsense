@@ -19,12 +19,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate grounded policy answers.")
     parser.add_argument("--cases", default="evaluation/m4_policy_cases.json")
     parser.add_argument("--out", default="evaluation/reports/m4_policy_eval.json")
+    parser.add_argument("--use-configured-index", action="store_true",
+                        help="Use QDRANT_URL/QDRANT_API_KEY when set, otherwise runtime/qdrant.")
     parser.add_argument("--use-local-index", action="store_true",
-                        help="Use runtime/qdrant instead of an isolated in-memory index.")
+                        help="Deprecated alias for --use-configured-index.")
     args = parser.parse_args()
 
     cases = json.loads((PROJECT_ROOT / args.cases).read_text())
-    if args.use_local_index:
+    if args.use_configured_index or args.use_local_index:
         agent = PolicyAgent.local()
     else:
         index = PolicyIndex(QdrantClient(":memory:"), PROJECT_ROOT / "data" / "shopsense")

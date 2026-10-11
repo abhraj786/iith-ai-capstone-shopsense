@@ -7,6 +7,7 @@ hybrid search/reranking, but M3 gives us a real Qdrant collection and stable pol
 import hashlib
 import json
 import math
+import os
 import re
 from pathlib import Path
 
@@ -66,17 +67,41 @@ def _point_id(slug: str, chunk_id: int) -> int:
 
 
 class PolicyIndex:
-    def __init__(self, client: QdrantClient, corpus_root: Path, collection_name: str = COLLECTION_NAME):
+    def __init__(
+        self,
+        client: QdrantClient,
+        corpus_root: Path,
+        collection_name: str = COLLECTION_NAME,
+        storage_label: str = "custom",
+    ):
         self.client = client
         self.corpus_root = Path(corpus_root)
         self.collection_name = collection_name
+        self.storage_label = storage_label
 
     @classmethod
     def local(cls, index_dir: Path | None = None) -> "PolicyIndex":
         settings = get_settings()
         root = PROJECT_ROOT / settings.data_root / settings.domain
         path = index_dir or (PROJECT_ROOT / settings.runtime_root / "qdrant")
-        return cls(QdrantClient(path=str(path)), root)
+        return cls(QdrantClient(path=str(path)), root, storage_label="local")
+
+    @classmethod
+    def from_settings(cls, index_dir: Path | None = None) -> "PolicyIndex":
+        """Use Qdrant Cloud when configured; otherwise use the local persistent store.
+
+        The course notebooks demonstrate Qdrant Cloud. Keeping a local fallback lets an
+        evaluator run the project without private cloud credentials while preserving the
+        same Qdrant collection boundary.
+        """
+        settings = get_settings()
+        root = PROJECT_ROOT / settings.data_root / settings.domain
+        qdrant_url = os.getenv("QDRANT_URL") or os.getenv("CAPSTONE_QDRANT_URL")
+        qdrant_key = os.getenv("QDRANT_API_KEY") or os.getenv("CAPSTONE_QDRANT_API_KEY")
+        collection = os.getenv("QDRANT_COLLECTION") or os.getenv("CAPSTONE_QDRANT_COLLECTION") or COLLECTION_NAME
+        if qdrant_url and qdrant_key:
+            return cls(QdrantClient(url=qdrant_url, api_key=qdrant_key), root, collection, "cloud")
+        return cls.local(index_dir=index_dir)
 
     def load_manifest(self) -> list[dict]:
         return json.loads((self.corpus_root / "corpus" / "index.json").read_text())

@@ -443,7 +443,7 @@ def run_pipeline(payload: dict[str, Any], client: LLMClient | None = None,
     )
     context = memory.customer_context(customer_ref)
 
-    index = policy_index or PolicyIndex.local()
+    index = policy_index or PolicyIndex.from_settings()
     if not index.client.collection_exists(index.collection_name):
         index.build(recreate=False)
     policy_query = " ".join([

@@ -63,7 +63,7 @@ class PolicyAgent:
 
     @classmethod
     def local(cls) -> "PolicyAgent":
-        return cls(HybridPolicyRetriever(PolicyIndex.local()))
+        return cls(HybridPolicyRetriever(PolicyIndex.from_settings()))
 
     def answer(self, question: str, limit: int = 5) -> PolicyAnswer:
         hits = self.retriever.retrieve(question, limit=limit)

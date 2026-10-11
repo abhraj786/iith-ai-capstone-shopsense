@@ -68,16 +68,33 @@ http://127.0.0.1:8765
 
 The UI supports full M1+M2 runs and M2-only runs from pasted `SupportTicket` JSON. Full M1+M2 runs require the same `.env` model configuration used by the M1 evaluation script.
 
-Build or refresh the local M3 policy index directly:
+Build or refresh the M3/M4 policy index directly:
 
 ```bash
 python scripts/build_policy_index.py
+```
+
+By default this uses local persistent Qdrant under `runtime/qdrant`, so an evaluator can
+run the project without private credentials. To use Qdrant Cloud, add the same variables
+used in the course Colab to `.env`:
+
+```bash
+QDRANT_URL=...
+QDRANT_API_KEY=...
+QDRANT_COLLECTION=shopsense_policy_m3
 ```
 
 Run M4 groundedness evaluation:
 
 ```bash
 python scripts/run_policy_eval.py
+```
+
+To run the evaluation against the configured persistent index instead of the isolated
+in-memory test index:
+
+```bash
+python scripts/run_policy_eval.py --use-configured-index
 ```
 
 ## Run M1 Evaluation
@@ -128,6 +145,7 @@ M3 adds local persistence and policy retrieval foundations.
 - `CustomerMemoryStore` stores one JSON file per customer under runtime memory.
 - Memory captures preferences plus compact ticket/action history for later workflow context.
 - `PolicyIndex` builds a Qdrant collection from the markdown policy corpus.
+- Qdrant Cloud is used when `QDRANT_URL` and `QDRANT_API_KEY` are configured; otherwise the same code falls back to local persistent Qdrant for reproducible evaluation.
 - Embeddings are deterministic and local so tests do not require an external embedding model.
 - M4 can replace this with hybrid search/reranking while keeping the Qdrant collection boundary.
 
