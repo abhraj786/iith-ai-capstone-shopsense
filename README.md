@@ -2,7 +2,7 @@
 
 ShopSense customer-care and order-operations capstone for the IIT Hyderabad Applied AI program.
 
-This repository currently implements **M1: Intake Parsing**, **M2: Safe Action Planning**, **M3: Memory + Policy Index**, **M4: Grounded Policy RAG**, and **M5: LangGraph Workflow**. M1 converts raw customer support messages into validated structured tickets. M2 takes those tickets and proposes the next operational action through deterministic policy tools. M3 persists per-customer interaction memory and builds a Qdrant index over ShopSense policy documents. M4 answers policy questions using hybrid retrieval, reranking, citations, and groundedness checks. M5 connects those modules into a checkpointed workflow with human-approval interrupts.
+This repository currently implements **M1: Intake Parsing**, **M2: Safe Action Planning**, **M3: Memory + Policy Index**, **M4: Grounded Policy RAG**, **M5: LangGraph Workflow**, and **M6: Multi-Agent Team + MCP Tools**. M1 converts raw customer support messages into validated structured tickets. M2 takes those tickets and proposes the next operational action through deterministic policy tools. M3 persists per-customer interaction memory and builds a Qdrant index over ShopSense policy documents. M4 answers policy questions using hybrid retrieval, reranking, citations, and groundedness checks. M5 connects those modules into a checkpointed workflow with human-approval interrupts. M6 exposes the mock order/refund/shipping APIs through MCP and wraps the system as named agents.
 
 ## What Is Included
 
@@ -19,6 +19,8 @@ This repository currently implements **M1: Intake Parsing**, **M2: Safe Action P
 - M4 policy RAG agent under `src/capstone/agents/policy_agent.py`
 - M4 hybrid retrieval under `src/capstone/rag/hybrid.py`
 - M5 LangGraph workflow under `src/capstone/workflow/graph.py`
+- M6 MCP tool server under `src/capstone/mcp/server.py`
+- M6 multi-agent team under `src/capstone/team/multi_agent.py`
 - M1 evaluation script under `scripts/run_intake_eval.py`
 - Unit tests under `tests/unit/`
 - Latest committed M1 report under `evaluation/reports/m1_holdout_n60_v4.json`
@@ -50,7 +52,7 @@ python -m pytest tests/unit
 Expected current result:
 
 ```text
-43 passed
+47 passed
 ```
 
 ## Run Local Workbench UI
@@ -103,6 +105,31 @@ in-memory test index:
 
 ```bash
 python scripts/run_policy_eval.py --use-configured-index
+```
+
+## Run M6 MCP Server
+
+M6 exposes the same deterministic mock APIs through an MCP server:
+
+```bash
+python -m capstone.mcp.server
+```
+
+The server registers customer/order lookup, shipment tracking, eligibility,
+refund calculation, refund creation, replacement creation, approval-tier lookup,
+and human-queue tools. These call the same M2 Python tool layer, so chat and
+email channels share the same safety rules.
+
+Run the M6 tests:
+
+```bash
+python -m pytest tests/unit/test_mcp_tools.py tests/unit/test_multi_agent_team.py -q
+```
+
+Expected:
+
+```text
+4 passed
 ```
 
 ## Run M1 Evaluation
@@ -178,3 +205,13 @@ M5 connects the earlier modules into one checkpointed LangGraph workflow.
 - LangGraph state is durably checkpointed in SQLite under `runtime/workflow_checkpoints.sqlite`.
 - Each node also writes an inspectable JSON audit snapshot under `runtime/workflow_checkpoints/<run_id>/`.
 - Unit tests cover auto-resolution, human interrupt, and resume paths without calling a live LLM.
+
+## M6 Design
+
+M6 separates the system into named agents and exposes the operational tools over MCP.
+
+- `ShopSenseToolGateway` is the shared facade around order lookup, tracking, refund, replacement, calculator, approval, and human-queue tools.
+- `capstone.mcp.server` exposes those functions through `FastMCP`.
+- `MultiAgentTeam` runs Triage Agent, Memory Agent, Policy RAG Agent, Order-Actions Agent, and Escalation Reviewer Agent.
+- The team accepts a `channel` field, so chat and email tickets use the same tool boundary.
+- Tests verify customer-scoped MCP order access, refund calculator exposure, legal-ticket escalation, and shared tools across chat/email.

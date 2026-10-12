@@ -16,7 +16,7 @@ M1: Intake Parsing
 M2: Safe Action Planning
 M3: Customer Memory and Policy Index
 M4: Grounded Policy RAG
-M5: LangGraph Workflow and Checkpointing
+M6: Multi-Agent Team and MCP Tools
 
 ## Slides
 
@@ -34,7 +34,8 @@ M5: LangGraph Workflow and Checkpointing
 12. Verification status
 13. Repository structure
 14. M5 LangGraph workflow
-15. Next milestone: M6 multi-agent team
+15. M6 multi-agent team
+16. Next milestone: M7 tracing and reliability
 
 ## Update Pattern
 
