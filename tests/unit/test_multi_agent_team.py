@@ -7,6 +7,7 @@ from qdrant_client import QdrantClient
 
 from capstone.agents.policy_agent import PolicyAgent
 from capstone.llm.client import LLMClient
+from capstone.mcp.client import MCPShopSenseToolGateway, ShopSenseMCPClient
 from capstone.memory.store import CustomerMemoryStore
 from capstone.rag.hybrid import HybridPolicyRetriever
 from capstone.rag.policy_index import PolicyIndex
@@ -102,4 +103,34 @@ def test_m6_team_uses_same_tools_for_chat_and_email_channels(tmp_path):
     assert chat.action_proposal["tool_name"] == "track_shipment"
     assert email.action_proposal["tool_result"]["ok"]
     assert chat.action_proposal["tool_result"]["ok"]
+
+
+def test_m6_team_can_call_order_tool_through_mcp_protocol(tmp_path):
+    output = {
+        "issue_type": "track_order",
+        "order_ref": "KW-O-000950",
+        "sentiment": "calm",
+        "urgency": "normal",
+        "claimed_amount_inr": None,
+        "contact_number": 1,
+        "escalation_signals": [],
+        "prompt_injection_suspected": False,
+        "missing_fields": [],
+        "summary": "Customer asks where the order is.",
+    }
+    team = _team(tmp_path, output)
+    team.tool_gateway = MCPShopSenseToolGateway(
+        ShopSenseMCPClient(env={"CAPSTONE_RUNTIME_ROOT": str(tmp_path / "mcp-runtime")})
+    )
+
+    result = team.resolve(
+        raw_text="Track KW-O-000950",
+        channel="chat",
+        customer_ref="KW-C-00285",
+        today="2026-03-10",
+    )
+
+    assert result.action_proposal["tool_name"] == "track_shipment"
+    assert result.action_proposal["tool_result"]["transport"] == "mcp"
+    assert result.steps[3].summary.endswith("via mcp.")
 

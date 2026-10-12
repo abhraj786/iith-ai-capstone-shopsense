@@ -52,7 +52,7 @@ python -m pytest tests/unit
 Expected current result:
 
 ```text
-47 passed
+49 passed
 ```
 
 ## Run Local Workbench UI
@@ -120,6 +120,16 @@ refund calculation, refund creation, replacement creation, approval-tier lookup,
 and human-queue tools. These call the same M2 Python tool layer, so chat and
 email channels share the same safety rules.
 
+The team can also use the lab-style MCP path through `ShopSenseMCPClient`:
+
+```text
+MultiAgentTeam -> MCP client -> MCP server -> deterministic Python tools
+```
+
+The direct Python gateway remains available as a fast local fallback, but the
+M6 tests include a protocol-backed call that discovers and invokes the running
+MCP server over stdio.
+
 Run the M6 tests:
 
 ```bash
@@ -129,7 +139,7 @@ python -m pytest tests/unit/test_mcp_tools.py tests/unit/test_multi_agent_team.p
 Expected:
 
 ```text
-4 passed
+6 passed
 ```
 
 ## Run M1 Evaluation
@@ -212,6 +222,7 @@ M6 separates the system into named agents and exposes the operational tools over
 
 - `ShopSenseToolGateway` is the shared facade around order lookup, tracking, refund, replacement, calculator, approval, and human-queue tools.
 - `capstone.mcp.server` exposes those functions through `FastMCP`.
+- `ShopSenseMCPClient` can discover and call the MCP server over stdio, matching the lab-style protocol flow.
 - `MultiAgentTeam` runs Triage Agent, Memory Agent, Policy RAG Agent, Order-Actions Agent, and Escalation Reviewer Agent.
 - The team accepts a `channel` field, so chat and email tickets use the same tool boundary.
-- Tests verify customer-scoped MCP order access, refund calculator exposure, legal-ticket escalation, and shared tools across chat/email.
+- Tests verify customer-scoped MCP order access, refund calculator exposure, protocol-backed tool invocation, legal-ticket escalation, and shared tools across chat/email.

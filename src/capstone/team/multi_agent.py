@@ -12,6 +12,7 @@ from capstone.agents.action_agent import plan_action
 from capstone.agents.intake_agent import parse_ticket
 from capstone.agents.policy_agent import PolicyAgent
 from capstone.llm.client import LLMClient
+from capstone.mcp.client import MCPShopSenseToolGateway
 from capstone.mcp.tools import ShopSenseToolGateway
 from capstone.memory.store import CustomerMemoryStore, get_memory_store
 from capstone.rag.hybrid import HybridPolicyRetriever
@@ -46,7 +47,8 @@ class MultiAgentTeam:
     memory_store: CustomerMemoryStore = field(default_factory=get_memory_store)
     policy_index: PolicyIndex | None = None
     policy_agent: PolicyAgent | None = None
-    tool_gateway: ShopSenseToolGateway | None = None
+    tool_gateway: ShopSenseToolGateway | MCPShopSenseToolGateway | None = None
+    use_mcp_tools: bool = False
 
     def __post_init__(self) -> None:
         if self.policy_index is None:
@@ -56,7 +58,7 @@ class MultiAgentTeam:
         if self.policy_agent is None:
             self.policy_agent = PolicyAgent(HybridPolicyRetriever(self.policy_index))
         if self.tool_gateway is None:
-            self.tool_gateway = ShopSenseToolGateway(self.repo)
+            self.tool_gateway = MCPShopSenseToolGateway() if self.use_mcp_tools else ShopSenseToolGateway(self.repo)
 
     def resolve(
         self,
@@ -98,12 +100,11 @@ class MultiAgentTeam:
             output=policy_answer.model_dump(mode="json"),
         ))
 
-        proposal = plan_action(self.repo, ticket, customer_ref, run_date, execute=execute_actions)
-        if proposal.tool_name == "track_shipment" and ticket.order_ref:
-            proposal.tool_result = self.tool_gateway.track_shipment(customer_ref, ticket.order_ref)
+        proposal = plan_action(self.repo, ticket, customer_ref, run_date, execute=False)
+        self._apply_tool_result(proposal, customer_ref, ticket.order_ref, today, execute_actions)
         steps.append(AgentStep(
             agent="Order-Actions Agent",
-            summary="Planned or executed the safest deterministic tool action.",
+            summary=f"Planned or executed the safest deterministic tool action via {self.tool_transport}.",
             output=proposal.model_dump(mode="json"),
         ))
 
@@ -133,6 +134,53 @@ class MultiAgentTeam:
             escalation_review=review,
             steps=steps,
         )
+
+    @property
+    def tool_transport(self) -> str:
+        return "mcp" if isinstance(self.tool_gateway, MCPShopSenseToolGateway) else "python"
+
+    def _apply_tool_result(
+        self,
+        proposal: ActionProposal,
+        customer_ref: str,
+        order_ref: str | None,
+        today: str,
+        execute_actions: bool,
+    ) -> None:
+        if not proposal.tool_name:
+            return
+        if proposal.tool_name == "track_shipment" and order_ref:
+            proposal.tool_result = self.tool_gateway.track_shipment(customer_ref, order_ref)
+            return
+        if not execute_actions:
+            return
+        proposal.executed = True
+        if proposal.tool_name == "issue_refund":
+            proposal.tool_result = self.tool_gateway.issue_refund(
+                customer_ref=customer_ref,
+                order_ref=proposal.tool_args["order_ref"],
+                reason_code=proposal.tool_args["reason_code"],
+                today=today,
+                approved_by=proposal.tool_args.get("approved_by", "auto"),
+            )
+        elif proposal.tool_name == "create_replacement":
+            proposal.tool_result = self.tool_gateway.create_replacement(
+                customer_ref=customer_ref,
+                order_ref=proposal.tool_args["order_ref"],
+                reason=proposal.tool_args["reason"],
+                today=today,
+                approved_by=proposal.tool_args.get("approved_by", "auto"),
+            )
+        elif proposal.tool_name == "flag_for_human":
+            proposal.tool_result = self.tool_gateway.flag_for_human(
+                customer_ref=customer_ref,
+                order_ref=proposal.tool_args.get("order_ref"),
+                trigger=proposal.tool_args["trigger"],
+                note=proposal.tool_args.get("note", ""),
+            )
+        if proposal.tool_result and not proposal.tool_result.get("ok", True):
+            proposal.tool_error = proposal.tool_result.get("error")
+            proposal.executed = False
 
     @staticmethod
     def _review(ticket: SupportTicket, proposal: ActionProposal) -> dict[str, Any]:

@@ -1,6 +1,7 @@
 """M6 MCP tool facade tests."""
 
 from capstone.mcp.tools import ShopSenseToolGateway
+from capstone.mcp.client import MCPShopSenseToolGateway, ShopSenseMCPClient
 from capstone.settings import get_settings
 from capstone.tools.repository import Repository
 
@@ -33,4 +34,19 @@ def test_mcp_gateway_exposes_refund_calculator(tmp_path):
     assert result["ok"]
     assert result["result"]["order_ref"] == delivered["order_ref"]
     assert result["result"]["refund_inr"] >= 0
+
+
+def test_mcp_client_discovers_and_calls_server_tool(tmp_path):
+    client = ShopSenseMCPClient(env={"CAPSTONE_RUNTIME_ROOT": str(tmp_path / "runtime")})
+
+    tools = client.list_tools()
+    assert "track_shipment" in tools
+    assert "issue_refund" in tools
+
+    gateway = MCPShopSenseToolGateway(client)
+    result = gateway.track_shipment("KW-C-00285", "KW-O-000950")
+
+    assert result["ok"]
+    assert result["transport"] == "mcp"
+    assert result["result"]["order_ref"] == "KW-O-000950"
 
