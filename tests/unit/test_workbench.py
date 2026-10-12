@@ -57,3 +57,40 @@ def test_workbench_runs_m1_and_m2_with_fake_llm(tmp_path):
     assert result["m3"]["policy_hits"]
     assert result["m4"]["grounded"]
     assert result["m4"]["citations"]
+
+
+def test_workbench_runs_m6_with_mcp_transport(tmp_path):
+    policy_index = PolicyIndex(QdrantClient(":memory:"), get_settings().data_root / get_settings().domain)
+    policy_index.build()
+    ticket = {
+        "issue_type": "track_order",
+        "order_ref": "KW-O-000950",
+        "sentiment": "calm",
+        "urgency": "normal",
+        "claimed_amount_inr": None,
+        "contact_number": 1,
+        "escalation_signals": [],
+        "prompt_injection_suspected": False,
+        "missing_fields": [],
+        "summary": "Customer asks where the order is.",
+    }
+
+    result = run_pipeline(
+        {
+            "mode": "m6",
+            "raw_text": "Where is order KW-O-000950?",
+            "ticket_json": json.dumps(ticket),
+            "channel": "chat",
+            "customer_ref": "KW-C-00285",
+            "today": "2026-03-10",
+        },
+        repo=Repository(get_settings().seed_dir, tmp_path / "state"),
+        memory_store=CustomerMemoryStore(tmp_path / "memory"),
+        policy_index=policy_index,
+        policy_agent=PolicyAgent(HybridPolicyRetriever(policy_index)),
+    )
+
+    assert result["m6"]["tool_transport"] == "mcp"
+    assert result["m6"]["agents"][0]["agent"] == "Triage Agent"
+    assert result["m2"]["tool_name"] == "track_shipment"
+    assert result["m2"]["tool_result"]["transport"] == "mcp"

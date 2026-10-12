@@ -18,6 +18,7 @@ from capstone.agents.action_agent import plan_action
 from capstone.agents.intake_agent import parse_ticket
 from capstone.agents.policy_agent import PolicyAgent
 from capstone.llm.client import LLMClient
+from capstone.mcp.client import MCPShopSenseToolGateway, ShopSenseMCPClient
 from capstone.memory.store import CustomerMemoryStore, get_memory_store
 from capstone.rag.hybrid import HybridPolicyRetriever
 from capstone.rag.policy_index import PolicyIndex
@@ -26,6 +27,7 @@ from capstone.settings import PROJECT_ROOT, get_settings
 from capstone.tools import lookups
 from capstone.tools.calculators import delivered_on
 from capstone.tools.repository import Repository, get_repository
+from capstone.team.multi_agent import MultiAgentTeam
 from capstone.workflow.graph import (
     WorkflowDeps,
     resume_ticket_workflow,
@@ -227,6 +229,7 @@ HTML = """<!doctype html>
             <option value="full">M1 + M2</option>
             <option value="m2">M2 only from JSON</option>
             <option value="m5">M5 workflow from JSON</option>
+            <option value="m6">M6 multi-agent via MCP</option>
           </select>
         </div>
         <div>
@@ -288,6 +291,10 @@ HTML = """<!doctype html>
           <div class="module-head"><span>M5 LangGraph Workflow</span><span class="badge pending" id="m5Badge">Waiting</span></div>
           <pre id="m5Out">{}</pre>
         </div>
+        <div class="module">
+          <div class="module-head"><span>M6 Multi-Agent + MCP</span><span class="badge pending" id="m6Badge">Waiting</span></div>
+          <pre id="m6Out">{}</pre>
+        </div>
       </div>
     </section>
   </main>
@@ -300,11 +307,13 @@ HTML = """<!doctype html>
     const m3Out = document.querySelector("#m3Out");
     const m4Out = document.querySelector("#m4Out");
     const m5Out = document.querySelector("#m5Out");
+    const m6Out = document.querySelector("#m6Out");
     const m1Badge = document.querySelector("#m1Badge");
     const m2Badge = document.querySelector("#m2Badge");
     const m3Badge = document.querySelector("#m3Badge");
     const m4Badge = document.querySelector("#m4Badge");
     const m5Badge = document.querySelector("#m5Badge");
+    const m6Badge = document.querySelector("#m6Badge");
     let currentRunId = null;
 
     function pretty(value) {
@@ -342,11 +351,13 @@ HTML = """<!doctype html>
       m3Badge.textContent = "Waiting";
       m4Badge.textContent = "Waiting";
       m5Badge.textContent = "Waiting";
+      m6Badge.textContent = "Waiting";
       m1Badge.className = "badge pending";
       m2Badge.className = "badge pending";
       m3Badge.className = "badge pending";
       m4Badge.className = "badge pending";
       m5Badge.className = "badge pending";
+      m6Badge.className = "badge pending";
       const payload = {
         mode: document.querySelector("#mode").value,
         raw_text: rawText.value,
@@ -373,6 +384,8 @@ HTML = """<!doctype html>
           m2Out.textContent = pretty(data.m2 || data);
           m3Out.textContent = pretty(data.m3 || {});
           m4Out.textContent = pretty(data.m4 || {});
+          m5Out.textContent = pretty(data.m5 || {});
+          m6Out.textContent = pretty(data.m6 || {});
           return;
         }
         m1Out.textContent = pretty(data.m1);
@@ -380,17 +393,20 @@ HTML = """<!doctype html>
         m3Out.textContent = pretty(data.m3);
         m4Out.textContent = pretty(data.m4);
         m5Out.textContent = pretty(data.m5);
+        m6Out.textContent = pretty(data.m6);
         ticketJson.value = pretty(data.m1);
-        m1Badge.textContent = data.mode === "m2" ? "Provided" : "Complete";
-        m2Badge.textContent = data.mode === "m5" ? "Via workflow" : "Complete";
-        m3Badge.textContent = data.mode === "m5" ? "Via workflow" : "Complete";
-        m4Badge.textContent = data.mode === "m5" ? "Via workflow" : "Complete";
+        m1Badge.textContent = ["m2", "m5", "m6"].includes(data.mode) ? "Provided" : "Complete";
+        m2Badge.textContent = ["m5", "m6"].includes(data.mode) ? "Via agent flow" : "Complete";
+        m3Badge.textContent = ["m5", "m6"].includes(data.mode) ? "Via agent flow" : "Complete";
+        m4Badge.textContent = ["m5", "m6"].includes(data.mode) ? "Via agent flow" : "Complete";
         m5Badge.textContent = data.m5?.interrupted ? "Waiting approval" : (data.mode === "m5" ? "Complete" : "Not run");
+        m6Badge.textContent = data.mode === "m6" ? "Complete" : "Not run";
         m1Badge.className = "badge";
         m2Badge.className = "badge";
         m3Badge.className = "badge";
         m4Badge.className = "badge";
         m5Badge.className = data.m5?.interrupted ? "badge pending" : "badge";
+        m6Badge.className = "badge";
         currentRunId = data.m5?.run_id || null;
         setResumeEnabled(Boolean(data.m5?.interrupted && currentRunId));
         setStatus(data.m5?.interrupted ? "M5 paused for human approval." : "Run complete.");
@@ -539,6 +555,22 @@ def _workflow_view(result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _team_view(result) -> dict[str, Any]:
+    return {
+        "channel": result.channel,
+        "customer_ref": result.customer_ref,
+        "tool_transport": result.action_proposal.get("tool_result", {}).get("transport", "python"),
+        "agents": [
+            {"agent": step.agent, "summary": step.summary, "output": step.output}
+            for step in result.steps
+        ],
+        "escalation_review": result.escalation_review,
+        "action_proposal": result.action_proposal,
+        "memory_context": result.memory_context,
+        "policy_answer": result.policy_answer,
+    }
+
+
 def run_pipeline(payload: dict[str, Any], client: LLMClient | None = None,
                  repo: Repository | None = None,
                  memory_store: CustomerMemoryStore | None = None,
@@ -550,7 +582,7 @@ def run_pipeline(payload: dict[str, Any], client: LLMClient | None = None,
         raise ValueError("customer_ref is required")
     today = date.fromisoformat(payload.get("today") or date.today().isoformat())
 
-    if mode in {"m2", "m5"}:
+    if mode in {"m2", "m5", "m6"}:
         ticket_input = payload.get("ticket_json") or "{}"
         if isinstance(ticket_input, str):
             ticket = SupportTicket.model_validate_json(ticket_input)
@@ -597,6 +629,34 @@ def run_pipeline(payload: dict[str, Any], client: LLMClient | None = None,
             "m5": m5,
         }
 
+    if mode == "m6":
+        mcp_client = ShopSenseMCPClient(env={"CAPSTONE_RUNTIME_ROOT": str(PROJECT_ROOT / "runtime")})
+        team = MultiAgentTeam(
+            client=client or _client_from_ticket(ticket),
+            repo=repo or get_repository(),
+            memory_store=memory_store or get_memory_store(),
+            policy_index=policy_index,
+            policy_agent=policy_agent,
+            tool_gateway=MCPShopSenseToolGateway(mcp_client),
+        )
+        team_result = team.resolve(
+            raw_text=str(payload.get("raw_text") or ticket.summary),
+            channel=str(payload.get("channel") or "email"),
+            customer_ref=customer_ref,
+            today=today.isoformat(),
+            execute_actions=bool(payload.get("execute", False)),
+        )
+        m6 = _team_view(team_result)
+        return {
+            "mode": mode,
+            "m1": team_result.ticket,
+            "m2": team_result.action_proposal,
+            "m3": {"customer_context": team_result.memory_context, "policy_hits": []},
+            "m4": team_result.policy_answer,
+            "m5": {"status": "not_run", "message": "Switch run mode to M5 workflow from JSON."},
+            "m6": m6,
+        }
+
     proposal = plan_action(
         repo or get_repository(),
         ticket,
@@ -637,6 +697,7 @@ def run_pipeline(payload: dict[str, Any], client: LLMClient | None = None,
         },
         "m4": policy_answer.model_dump(mode="json"),
         "m5": {"status": "not_run", "message": "Switch run mode to M5 workflow from JSON."},
+        "m6": {"status": "not_run", "message": "Switch run mode to M6 multi-agent via MCP."},
     }
 
 
