@@ -142,6 +142,21 @@ def show(payload: dict[str, Any]) -> None:
     print(json.dumps(payload, indent=2, default=str))
 
 
+def policy_hit_with_citation(index: PolicyIndex, hit) -> dict[str, Any]:
+    manifest = {doc["slug"]: doc for doc in index.load_manifest()}
+    doc = manifest.get(hit.document_slug, {})
+    payload = hit.model_dump(mode="json")
+    payload["citation"] = {
+        "document_slug": hit.document_slug,
+        "title": hit.title,
+        "chunk_id": hit.chunk_id,
+        "source_markdown": doc.get("markdown"),
+        "source_pdf": doc.get("pdf"),
+        "locator": f"{hit.document_slug}#chunk-{hit.chunk_id}",
+    }
+    return payload
+
+
 def demo_m1(real: bool) -> SupportTicket:
     section("M1 Intake Parsing")
     if real:
@@ -180,7 +195,7 @@ def demo_m3(ticket: SupportTicket, proposal, real: bool) -> None:
             "memory_context": memory.customer_context(CUSTOMER_REF),
             "qdrant_collection": index.collection_name,
             "indexed_chunks": count,
-            "top_policy_hits": [hit.model_dump(mode="json") for hit in hits],
+            "top_policy_hits": [policy_hit_with_citation(index, hit) for hit in hits],
         })
 
 
