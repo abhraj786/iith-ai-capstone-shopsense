@@ -2,7 +2,7 @@
 
 ShopSense customer-care and order-operations capstone for the IIT Hyderabad Applied AI program.
 
-This repository currently implements **M1: Intake Parsing**, **M2: Safe Action Planning**, **M3: Memory + Policy Index**, **M4: Grounded Policy RAG**, **M5: LangGraph Workflow**, **M6: Multi-Agent Team + MCP Tools**, and **M7: Tracing + Reliability**. M1 converts raw customer support messages into validated structured tickets. M2 takes those tickets and proposes the next operational action through deterministic policy tools. M3 persists per-customer interaction memory and builds a Qdrant index over ShopSense policy documents. M4 answers policy questions using hybrid retrieval, reranking, citations, and groundedness checks. M5 connects those modules into a checkpointed workflow with human-approval interrupts. M6 exposes the mock order/refund/shipping APIs through MCP and wraps the system as named agents. M7 adds trace capture plus retries, circuit breaking, and human-queue fallback for flaky tool calls.
+This repository currently implements **M1: Intake Parsing**, **M2: Safe Action Planning**, **M3: Memory + Policy Index**, **M4: Grounded Policy RAG**, **M5: LangGraph Workflow**, **M6: Multi-Agent Team + MCP Tools**, **M7: Tracing + Reliability**, and **M8: Golden Eval + FastAPI Packaging**. M1 converts raw customer support messages into validated structured tickets. M2 takes those tickets and proposes the next operational action through deterministic policy tools. M3 persists per-customer interaction memory and builds a Qdrant index over ShopSense policy documents. M4 answers policy questions using hybrid retrieval, reranking, citations, and groundedness checks. M5 connects those modules into a checkpointed workflow with human-approval interrupts. M6 exposes the mock order/refund/shipping APIs through MCP and wraps the system as named agents. M7 adds trace capture plus retries, circuit breaking, and human-queue fallback for flaky tool calls. M8 adds a 20-ticket golden evaluation, final guardrails, and a FastAPI demo endpoint.
 
 ## What Is Included
 
@@ -23,9 +23,13 @@ This repository currently implements **M1: Intake Parsing**, **M2: Safe Action P
 - M6 multi-agent team under `src/capstone/team/multi_agent.py`
 - M7 tracing under `src/capstone/observability/tracing.py`
 - M7 reliability wrappers under `src/capstone/reliability/tools.py`
+- M8 FastAPI app under `src/capstone/api.py`
+- M8 guardrails under `src/capstone/guardrails.py`
+- M8 golden eval set under `data/shopsense/eval/golden_m8_tickets.json`
 - M1 evaluation script under `scripts/run_intake_eval.py`
 - Unit tests under `tests/unit/`
 - Latest committed M1 report under `evaluation/reports/m1_holdout_n60_v4.json`
+- Latest committed M8 report under `evaluation/reports/m8_golden_eval.json`
 
 Secrets, virtual environments, caches, and runtime state are intentionally excluded from Git.
 
@@ -54,7 +58,7 @@ python -m pytest tests/unit
 Expected current result:
 
 ```text
-53 passed
+58 passed
 ```
 
 ## Run Local Workbench UI
@@ -187,6 +191,41 @@ Summarize any emitted trace as a small latency/fallback dashboard:
 python scripts/summarize_trace.py runtime/traces/<trace_id>.jsonl
 ```
 
+## Run M8 API And Golden Eval
+
+Start the packaged FastAPI demo endpoint:
+
+```bash
+uvicorn capstone.api:app --reload --port 8000
+```
+
+Health check:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Run the 20-ticket M8 golden eval:
+
+```bash
+python scripts/run_m8_golden_eval.py
+```
+
+Expected:
+
+```text
+{
+  "total": 20,
+  "passed": 20,
+  "failed": 0,
+  "accuracy": 1.0
+}
+```
+
+The eval covers angry, ambiguous, legal, high-refund, product-safety, repeat-contact,
+and prompt-injection tickets. It verifies refund-cap guardrails, policy-grounding
+guardrails, and safe human routing without requiring live LLM keys.
+
 ## Run M1 Evaluation
 
 The evaluation sends only `raw_text` and `channel` to the LLM. Ground-truth labels remain local and are used only after parsing to score the output.
@@ -286,3 +325,14 @@ M7 adds observability and reliability around the M6 agent/tool boundary.
 - `CircuitBreaker` opens after repeated failures and avoids hammering a down tool.
 - Transient and malformed tool failures fall back to the human queue so customer cases are not dropped.
 - `scripts/run_reliability_benchmark.py` provides a seeded before/after hardening benchmark.
+
+## M8 Design
+
+M8 packages the assistant for evaluator use.
+
+- `capstone.api` exposes `/health` and `/chat` through FastAPI.
+- `/chat` can run raw-text flows or deterministic parsed-ticket flows for offline evaluation.
+- `apply_guardrails` blocks prompt-injection instructions, prevents auto-approved over-cap refunds, and blocks ungrounded policy answers.
+- `data/shopsense/eval/golden_m8_tickets.json` contains 20 golden cases spanning angry, ambiguous, legal, high-refund, product-safety, and prompt-injection scenarios.
+- `scripts/run_m8_golden_eval.py` validates the golden set and writes `evaluation/reports/m8_golden_eval.json`.
+- Unit tests cover guardrails, API packaging, and the M8 golden eval path.

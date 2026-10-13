@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from capstone.agents.action_agent import plan_action
 from capstone.agents.intake_agent import parse_ticket
 from capstone.agents.policy_agent import PolicyAgent
+from capstone.guardrails import apply_guardrails
 from capstone.llm.client import LLMClient
 from capstone.mcp.client import MCPShopSenseToolGateway
 from capstone.mcp.tools import ShopSenseToolGateway
@@ -40,6 +41,7 @@ class TeamResult(BaseModel):
     action_proposal: dict[str, Any]
     memory_context: dict[str, Any]
     escalation_review: dict[str, Any]
+    guardrails: dict[str, Any] = Field(default_factory=dict)
     steps: list[AgentStep]
     trace: dict[str, Any] = Field(default_factory=dict)
 
@@ -127,6 +129,7 @@ class MultiAgentTeam:
         with trace.span("Order-Actions Agent", metadata={"transport": self.tool_transport}) as span:
             proposal = plan_action(self.repo, ticket, customer_ref, run_date, execute=False)
             self._apply_tool_result(proposal, customer_ref, ticket.order_ref, today, execute_actions, trace)
+            proposal, guardrails = apply_guardrails(ticket, proposal, policy_answer)
             span.set_output(proposal.model_dump(mode="json"))
         steps.append(AgentStep(
             agent="Order-Actions Agent",
@@ -161,6 +164,7 @@ class MultiAgentTeam:
             action_proposal=proposal.model_dump(mode="json"),
             memory_context=updated_memory,
             escalation_review=review,
+            guardrails=guardrails.model_dump(mode="json"),
             steps=steps,
             trace=trace_result,
         )

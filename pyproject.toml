@@ -11,6 +11,7 @@ dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.2",
     "python-dotenv>=1.0",
+    "fastapi>=0.115",
     "litellm>=1.50",
     "langgraph>=0.2.60",
     "langgraph-checkpoint-sqlite>=3.0",
@@ -19,6 +20,7 @@ dependencies = [
     "qdrant-client>=1.12",
     "socksio>=1.0",
     "tenacity>=8",
+    "uvicorn>=0.30",
 ]
 
 [project.optional-dependencies]
