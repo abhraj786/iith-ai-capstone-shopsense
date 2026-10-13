@@ -108,6 +108,18 @@ python demo_api_client.py
 
 The default demo is deterministic and does not require an LLM key. It sends parsed M8 golden tickets to `/chat` and prints full JSON responses for legal refund, prompt injection, missing order, order tracking, product safety, over-cap refund, and warranty cases.
 
+To inspect every milestone individually in the same command-line style:
+
+```bash
+python demo_milestones.py
+```
+
+This prints one section each for M1 through M8. By default M1 uses a deterministic fake LLM so the demo is stable. To call the configured live LLM provider for M1:
+
+```bash
+python demo_milestones.py --live-m1
+```
+
 ## Environment And Cloud Configuration
 
 The project runs offline by default. To test cloud services or live LLM parsing, copy the template and fill in your own keys:
@@ -160,6 +172,7 @@ For a single all-up check:
 python -m pytest tests/unit -q
 python scripts/run_policy_eval.py
 python scripts/run_m8_golden_eval.py
+python demo_milestones.py
 ```
 
 ## Setup
