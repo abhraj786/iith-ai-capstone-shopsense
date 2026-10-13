@@ -108,16 +108,26 @@ python demo_api_client.py
 
 The default demo is deterministic and does not require an LLM key. It sends parsed M8 golden tickets to `/chat` and prints full JSON responses for legal refund, prompt injection, missing order, order tracking, product safety, over-cap refund, and warranty cases.
 
-To inspect every milestone individually in the same command-line style:
+For examiner-style real testing, add keys to `.env`, then run:
 
 ```bash
-python demo_milestones.py
+python demo_api_client.py --live
 ```
 
-This prints one section each for M1 through M8. By default M1 uses a deterministic fake LLM so the demo is stable. To call the configured live LLM provider for M1:
+This sends normal English messages to `/chat`. The API runs the live M1 parser, then the downstream agents, tools, guardrails, traces, and response packaging.
+
+To inspect every milestone individually in one command:
 
 ```bash
-python demo_milestones.py --live-m1
+python demo_milestones.py --real
+```
+
+This is the preferred grading command. It uses the configured live LLM and Qdrant Cloud. It does not silently fall back to deterministic fixtures. If the provider or cloud service is unavailable, the command stops and prints the exact failed dependency.
+
+For a stable no-key smoke test only:
+
+```bash
+python demo_milestones.py --offline
 ```
 
 ## Environment And Cloud Configuration
@@ -148,12 +158,11 @@ CAPSTONE_LANGFUSE_SECRET_KEY=<your-secret-key>
 CAPSTONE_LANGFUSE_HOST=https://cloud.langfuse.com
 ```
 
-If Qdrant Cloud is unavailable, the same code falls back to local persistent Qdrant under `runtime/qdrant`. If Langfuse keys are absent, traces are still written locally under `runtime/traces`.
+`python demo_milestones.py --real` is strict: Qdrant Cloud must be reachable and the live LLM provider must respond. `python demo_milestones.py --offline` is intentionally deterministic for local smoke checks. If Langfuse keys are absent, traces are still written locally under `runtime/traces`; when keys are present, the same trace events are forwarded to Langfuse.
 
 ## Milestone Verification Matrix
 
-Only M1 live intake evaluation and `demo_api_client.py --live` require an LLM provider key.
-The unit tests, M4 eval, M8 golden eval, deterministic API demo, and workbench parsed-ticket paths run offline.
+Use the real-mode commands for final review. Use unit tests and offline demos for regression checks.
 
 | Milestone | What to verify | Command |
 | --- | --- | --- |
@@ -172,7 +181,13 @@ For a single all-up check:
 python -m pytest tests/unit -q
 python scripts/run_policy_eval.py
 python scripts/run_m8_golden_eval.py
-python demo_milestones.py
+python demo_milestones.py --real
+```
+
+If the LLM provider returns a temporary capacity error, retry or set another LiteLLM-compatible model that is available to your account:
+
+```bash
+CAPSTONE_LLM_MODEL=<provider>/<model-name>
 ```
 
 ## Setup
@@ -231,9 +246,7 @@ Build or refresh the M3/M4 policy index directly:
 python scripts/build_policy_index.py
 ```
 
-By default this uses local persistent Qdrant under `runtime/qdrant`, so an evaluator can
-run the project without private credentials. To use Qdrant Cloud, add the same variables
-used in the course Colab to `.env`:
+By default this helper uses local persistent Qdrant under `runtime/qdrant`, so smoke tests can run without private credentials. To use Qdrant Cloud, add the same variables used in the course Colab to `.env`:
 
 ```bash
 QDRANT_URL=...
@@ -241,8 +254,7 @@ QDRANT_API_KEY=...
 QDRANT_COLLECTION=shopsense_policy_m3
 ```
 
-When cloud settings are present, the app tries Qdrant Cloud first. If the cloud endpoint is
-unavailable, it falls back to local Qdrant so demos and evaluations can continue.
+For strict examiner testing of cloud behavior, run `python demo_milestones.py --real`; that command requires Qdrant Cloud and does not fall back. The standalone index helper and UI may use local Qdrant for no-key development.
 
 Run M4 groundedness evaluation:
 
@@ -436,7 +448,7 @@ M3 adds local persistence and policy retrieval foundations.
 - `CustomerMemoryStore` stores one JSON file per customer under runtime memory.
 - Memory captures semantic preferences, episodic ticket/action history, procedural policy/tool boundaries, and a deterministic rolling summary for later workflow context.
 - `PolicyIndex` builds a Qdrant collection from the markdown policy corpus.
-- Qdrant Cloud is used when `QDRANT_URL` and `QDRANT_API_KEY` are configured and reachable; otherwise the same code falls back to local persistent Qdrant for reproducible evaluation.
+- Qdrant Cloud is used when `QDRANT_URL` and `QDRANT_API_KEY` are configured. The strict `demo_milestones.py --real` path requires cloud connectivity; the local helper scripts can use persistent Qdrant under `runtime/qdrant` for no-key regression runs.
 - Embeddings are deterministic and local so tests do not require an external embedding model.
 - M4 can replace this with hybrid search/reranking while keeping the Qdrant collection boundary.
 
