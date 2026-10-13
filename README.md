@@ -33,6 +33,135 @@ This repository currently implements **M1: Intake Parsing**, **M2: Safe Action P
 
 Secrets, virtual environments, caches, and runtime state are intentionally excluded from Git.
 
+## Examiner Quick Start
+
+These steps are for a fresh evaluator machine. Use Python 3.10 or newer.
+
+```bash
+git clone https://github.com/abhraj786/iith-ai-capstone-shopsense.git
+cd iith-ai-capstone-shopsense
+
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
+
+On Windows PowerShell, activate the environment with:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Then run the full unit suite:
+
+```bash
+python -m pytest tests/unit -q
+```
+
+Expected current result:
+
+```text
+58 passed
+```
+
+Run the packaged M8 evaluator:
+
+```bash
+python scripts/run_m8_golden_eval.py
+```
+
+Expected current result:
+
+```text
+{
+  "total": 20,
+  "passed": 20,
+  "failed": 0,
+  "accuracy": 1.0
+}
+```
+
+Start the local browser workbench:
+
+```bash
+python -m capstone.workbench.app --port 8765
+```
+
+Open:
+
+```text
+http://127.0.0.1:8765
+```
+
+Start the FastAPI package:
+
+```bash
+uvicorn capstone.api:app --reload --port 8000
+```
+
+In a second terminal, run the command-line demo:
+
+```bash
+python demo_api_client.py
+```
+
+The default demo is deterministic and does not require an LLM key. It sends parsed M8 golden tickets to `/chat` and prints full JSON responses for legal refund, prompt injection, missing order, order tracking, product safety, over-cap refund, and warranty cases.
+
+## Environment And Cloud Configuration
+
+The project runs offline by default. To test cloud services or live LLM parsing, copy the template and fill in your own keys:
+
+```bash
+cp .env.example .env
+```
+
+Never commit `.env`.
+
+Useful variables:
+
+```bash
+# Live M1 LLM parsing through LiteLLM
+CAPSTONE_LLM_MODEL=gemini/gemini-flash-lite-latest
+GEMINI_API_KEY=<your-key>
+
+# Qdrant Cloud for M3/M4 policy index
+QDRANT_URL=<your-qdrant-url>
+QDRANT_API_KEY=<your-qdrant-api-key>
+QDRANT_COLLECTION=shopsense_policy_m3
+
+# Langfuse for M7/M8 trace forwarding
+CAPSTONE_LANGFUSE_PUBLIC_KEY=<your-public-key>
+CAPSTONE_LANGFUSE_SECRET_KEY=<your-secret-key>
+CAPSTONE_LANGFUSE_HOST=https://cloud.langfuse.com
+```
+
+If Qdrant Cloud is unavailable, the same code falls back to local persistent Qdrant under `runtime/qdrant`. If Langfuse keys are absent, traces are still written locally under `runtime/traces`.
+
+## Milestone Verification Matrix
+
+Only M1 live intake evaluation and `demo_api_client.py --live` require an LLM provider key.
+The unit tests, M4 eval, M8 golden eval, deterministic API demo, and workbench parsed-ticket paths run offline.
+
+| Milestone | What to verify | Command |
+| --- | --- | --- |
+| M1 | LLM intake parser creates validated `SupportTicket` objects | `python scripts/run_intake_eval.py --n 60 --offset 60 --out evaluation/reports/m1_holdout_n60_v4.json` |
+| M2 | Tool-backed action planning, refund caps, customer-scoped lookups | `python -m pytest tests/unit/test_action_agent.py tests/unit/test_tools.py -q` |
+| M3 | Customer memory and Qdrant policy index | `python -m pytest tests/unit/test_memory.py tests/unit/test_policy_index.py -q` |
+| M4 | Hybrid policy RAG and groundedness eval | `python scripts/run_policy_eval.py` |
+| M5 | LangGraph workflow with auto path and human interrupt path | `python -m pytest tests/unit/test_workflow.py -q` |
+| M6 | Multi-agent team and MCP-backed tool calls | `python -m pytest tests/unit/test_mcp_tools.py tests/unit/test_multi_agent_team.py -q` |
+| M7 | Tracing, retry, fallback, circuit breaker | `python -m pytest tests/unit/test_reliability.py -q` |
+| M8 | Golden eval, guardrails, FastAPI package | `python scripts/run_m8_golden_eval.py` |
+
+For a single all-up check:
+
+```bash
+python -m pytest tests/unit -q
+python scripts/run_policy_eval.py
+python scripts/run_m8_golden_eval.py
+```
+
 ## Setup
 
 ```bash
