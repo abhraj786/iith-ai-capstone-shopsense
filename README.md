@@ -205,6 +205,26 @@ Health check:
 curl http://127.0.0.1:8000/health
 ```
 
+Run end-user style demo cases from a second terminal:
+
+```bash
+python demo_api_client.py
+```
+
+By default the demo uses parsed tickets from the M8 golden set, so it is
+deterministic and works without an LLM key. To test the full live M1 parser,
+configure the model key in `.env` and run:
+
+```bash
+python demo_api_client.py --live
+```
+
+For a public tunnel, point the same client at the exposed base URL:
+
+```bash
+python demo_api_client.py --url https://<your-ngrok-id>.ngrok-free.app
+```
+
 Run the 20-ticket M8 golden eval:
 
 ```bash
