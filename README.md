@@ -143,9 +143,14 @@ Never commit `.env`.
 Useful variables:
 
 ```bash
-# Live M1 LLM parsing through LiteLLM
-CAPSTONE_LLM_MODEL=gemini/gemini-flash-lite-latest
-GEMINI_API_KEY=<your-key>
+# Live M1 LLM parsing through LiteLLM.
+# The project has been verified with Groq's free-tier-friendly model below.
+CAPSTONE_LLM_MODEL=groq/openai/gpt-oss-20b
+GROQ_API_KEY=<your-key>
+
+# Other LiteLLM providers also work if the matching key/model is configured.
+GEMINI_API_KEY=<optional-key>
+OPENAI_API_KEY=<optional-key>
 
 # Qdrant Cloud for M3/M4 policy index
 QDRANT_URL=<your-qdrant-url>
