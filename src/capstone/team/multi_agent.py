@@ -78,12 +78,18 @@ class MultiAgentTeam:
         customer_ref: str,
         today: str,
         execute_actions: bool = False,
+        session_id: str | None = None,
+        user_id: str | None = None,
+        tags: list[str] | None = None,
     ) -> TeamResult:
         run_date = date.fromisoformat(today)
         steps: list[AgentStep] = []
         trace = self.tracer.start_trace(
             "shopsense.ticket_resolution",
             metadata={"channel": channel, "customer_ref": customer_ref, "tool_transport": self.tool_transport},
+            session_id=session_id,
+            user_id=user_id or customer_ref,
+            tags=tags or ["shopsense", "m7", channel],
         )
 
         with trace.span("Triage Agent", metadata={"channel": channel}):
@@ -110,7 +116,8 @@ class MultiAgentTeam:
 
         with trace.span("Policy RAG Agent"):
             policy_query = _policy_query(ticket)
-            policy_answer = self.policy_agent.answer(policy_query)
+            with trace.span("policy.hybrid_retrieval", metadata={"query": policy_query}):
+                policy_answer = self.policy_agent.answer(policy_query)
         steps.append(AgentStep(
             agent="Policy RAG Agent",
             summary="Answered policy question with citations before action planning.",
@@ -119,7 +126,7 @@ class MultiAgentTeam:
 
         with trace.span("Order-Actions Agent", metadata={"transport": self.tool_transport}) as span:
             proposal = plan_action(self.repo, ticket, customer_ref, run_date, execute=False)
-            self._apply_tool_result(proposal, customer_ref, ticket.order_ref, today, execute_actions)
+            self._apply_tool_result(proposal, customer_ref, ticket.order_ref, today, execute_actions, trace)
             span.set_output(proposal.model_dump(mode="json"))
         steps.append(AgentStep(
             agent="Order-Actions Agent",
@@ -170,38 +177,47 @@ class MultiAgentTeam:
         order_ref: str | None,
         today: str,
         execute_actions: bool,
+        trace,
     ) -> None:
         if not proposal.tool_name:
             return
         if proposal.tool_name == "track_shipment" and order_ref:
-            proposal.tool_result = self.tool_gateway.track_shipment(customer_ref, order_ref)
+            with trace.span("tool.track_shipment", metadata={"order_ref": order_ref}) as span:
+                proposal.tool_result = self.tool_gateway.track_shipment(customer_ref, order_ref)
+                span.set_output(proposal.tool_result)
         elif not execute_actions:
             return
         else:
             proposal.executed = True
             if proposal.tool_name == "issue_refund":
-                proposal.tool_result = self.tool_gateway.issue_refund(
-                    customer_ref=customer_ref,
-                    order_ref=proposal.tool_args["order_ref"],
-                    reason_code=proposal.tool_args["reason_code"],
-                    today=today,
-                    approved_by=proposal.tool_args.get("approved_by", "auto"),
-                )
+                with trace.span("tool.issue_refund", metadata={"order_ref": proposal.tool_args["order_ref"]}) as span:
+                    proposal.tool_result = self.tool_gateway.issue_refund(
+                        customer_ref=customer_ref,
+                        order_ref=proposal.tool_args["order_ref"],
+                        reason_code=proposal.tool_args["reason_code"],
+                        today=today,
+                        approved_by=proposal.tool_args.get("approved_by", "auto"),
+                    )
+                    span.set_output(proposal.tool_result)
             elif proposal.tool_name == "create_replacement":
-                proposal.tool_result = self.tool_gateway.create_replacement(
-                    customer_ref=customer_ref,
-                    order_ref=proposal.tool_args["order_ref"],
-                    reason=proposal.tool_args["reason"],
-                    today=today,
-                    approved_by=proposal.tool_args.get("approved_by", "auto"),
-                )
+                with trace.span("tool.create_replacement", metadata={"order_ref": proposal.tool_args["order_ref"]}) as span:
+                    proposal.tool_result = self.tool_gateway.create_replacement(
+                        customer_ref=customer_ref,
+                        order_ref=proposal.tool_args["order_ref"],
+                        reason=proposal.tool_args["reason"],
+                        today=today,
+                        approved_by=proposal.tool_args.get("approved_by", "auto"),
+                    )
+                    span.set_output(proposal.tool_result)
             elif proposal.tool_name == "flag_for_human":
-                proposal.tool_result = self.tool_gateway.flag_for_human(
-                    customer_ref=customer_ref,
-                    order_ref=proposal.tool_args.get("order_ref"),
-                    trigger=proposal.tool_args["trigger"],
-                    note=proposal.tool_args.get("note", ""),
-                )
+                with trace.span("tool.flag_for_human", metadata={"trigger": proposal.tool_args["trigger"]}) as span:
+                    proposal.tool_result = self.tool_gateway.flag_for_human(
+                        customer_ref=customer_ref,
+                        order_ref=proposal.tool_args.get("order_ref"),
+                        trigger=proposal.tool_args["trigger"],
+                        note=proposal.tool_args.get("note", ""),
+                    )
+                    span.set_output(proposal.tool_result)
         if proposal.tool_result and not proposal.tool_result.get("ok", True):
             proposal.tool_error = proposal.tool_result.get("error")
             proposal.executed = False

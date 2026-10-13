@@ -16,12 +16,14 @@ TRANSIENT_ERRORS = {
     "rate_limited",
     "circuit_open",
 }
+FALLBACK_ERRORS = TRANSIENT_ERRORS | {"malformed_response"}
 
 
 @dataclass
 class RetryPolicy:
     attempts: int = 2
     backoff_s: float = 0.01
+    max_backoff_s: float = 0.2
 
 
 @dataclass
@@ -103,7 +105,8 @@ class ReliableToolGateway:
             if last.get("ok", True) or not _is_transient(last):
                 break
             if attempt < self.retry_policy.attempts:
-                time.sleep(self.retry_policy.backoff_s * attempt)
+                delay = min(self.retry_policy.backoff_s * (2 ** (attempt - 1)), self.retry_policy.max_backoff_s)
+                time.sleep(delay)
 
         assert last is not None
         reliability = {"attempts": attempt, "circuit": "closed"}
@@ -111,7 +114,7 @@ class ReliableToolGateway:
             self.circuit_breaker.record_success(tool_name)
         else:
             self.circuit_breaker.record_failure(tool_name)
-            reliability["fallback"] = "human_queue" if _is_transient(last) else "none"
+            reliability["fallback"] = "human_queue" if _uses_fallback(last) else "none"
         last["reliability"] = {**last.get("reliability", {}), **reliability}
         return last
 
@@ -119,6 +122,11 @@ class ReliableToolGateway:
 def _is_transient(result: dict[str, Any]) -> bool:
     error = result.get("error") or {}
     return error.get("error") in TRANSIENT_ERRORS
+
+
+def _uses_fallback(result: dict[str, Any]) -> bool:
+    error = result.get("error") or {}
+    return error.get("error") in FALLBACK_ERRORS
 
 
 def _transport_from_result(result: dict[str, Any]) -> str:

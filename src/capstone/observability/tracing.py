@@ -7,7 +7,6 @@ import tempfile
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from types import TracebackType
 from typing import Any
 from uuid import uuid4
 
@@ -24,11 +23,30 @@ class TraceRecorder:
     def __init__(self, root: Path | None = None):
         settings = get_settings()
         self.root = Path(root or (PROJECT_ROOT / settings.runtime_root / "traces"))
-        self.root.mkdir(parents=True, exist_ok=True)
+        try:
+            self.root.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            self.root = Path(tempfile.gettempdir()) / "shopsense-traces"
+            self.root.mkdir(parents=True, exist_ok=True)
         self._langfuse = _LangFuseSink.from_settings(settings)
 
-    def start_trace(self, name: str, *, metadata: dict[str, Any] | None = None) -> "TraceRun":
-        return TraceRun(self, name=name, metadata=metadata or {})
+    def start_trace(
+        self,
+        name: str,
+        *,
+        metadata: dict[str, Any] | None = None,
+        session_id: str | None = None,
+        user_id: str | None = None,
+        tags: list[str] | None = None,
+    ) -> "TraceRun":
+        return TraceRun(
+            self,
+            name=name,
+            metadata=metadata or {},
+            session_id=session_id,
+            user_id=user_id,
+            tags=tags or [],
+        )
 
     def write(self, event: dict[str, Any]) -> None:
         path = self.root / f"{event['trace_id']}.jsonl"
@@ -46,23 +64,40 @@ class TraceRecorder:
 
 
 class TraceRun:
-    def __init__(self, recorder: TraceRecorder, *, name: str, metadata: dict[str, Any]):
+    def __init__(
+        self,
+        recorder: TraceRecorder,
+        *,
+        name: str,
+        metadata: dict[str, Any],
+        session_id: str | None,
+        user_id: str | None,
+        tags: list[str],
+    ):
         self.recorder = recorder
         self.trace_id = uuid4().hex
         self.name = name
         self.metadata = metadata
+        self.session_id = session_id or self.trace_id
+        self.user_id = user_id
+        self.tags = tags
+        self._span_stack: list[str] = []
         self.started_at = time.time()
         self.recorder.write({
             "event": "trace_start",
             "trace_id": self.trace_id,
             "name": self.name,
             "metadata": self.metadata,
+            "session_id": self.session_id,
+            "user_id": self.user_id,
+            "tags": self.tags,
             "ts": self.started_at,
         })
 
     @contextmanager
     def span(self, name: str, *, metadata: dict[str, Any] | None = None):
         span = TraceSpan(self, name=name, metadata=metadata or {})
+        self._span_stack.append(span.span_id)
         try:
             yield span
         except Exception as exc:
@@ -70,6 +105,11 @@ class TraceRun:
             raise
         else:
             span.end()
+        finally:
+            if self._span_stack and self._span_stack[-1] == span.span_id:
+                self._span_stack.pop()
+            elif span.span_id in self._span_stack:
+                self._span_stack.remove(span.span_id)
 
     def end(self, *, output: dict[str, Any] | None = None, error: dict[str, Any] | None = None) -> dict[str, Any]:
         ended_at = time.time()
@@ -92,12 +132,14 @@ class TraceSpan:
         self.name = name
         self.metadata = metadata
         self.span_id = uuid4().hex
+        self.parent_span_id = trace._span_stack[-1] if trace._span_stack else None
         self.started_at = time.time()
         self.ended = False
         self.trace.recorder.write({
             "event": "span_start",
             "trace_id": self.trace.trace_id,
             "span_id": self.span_id,
+            "parent_span_id": self.parent_span_id,
             "name": self.name,
             "metadata": self.metadata,
             "ts": self.started_at,
@@ -115,6 +157,7 @@ class TraceSpan:
             "event": "span_end",
             "trace_id": self.trace.trace_id,
             "span_id": self.span_id,
+            "parent_span_id": self.parent_span_id,
             "name": self.name,
             "duration_ms": round((ended_at - self.started_at) * 1000, 3),
             "output": output or getattr(self, "output", {}),
@@ -155,6 +198,9 @@ class _LangFuseSink:
                     id=event["trace_id"],
                     name=event["name"],
                     metadata=event.get("metadata") or {},
+                    session_id=event.get("session_id"),
+                    user_id=event.get("user_id"),
+                    tags=event.get("tags") or [],
                 )
             elif event["event"] == "span_start":
                 trace = self._traces.get(event["trace_id"])
@@ -171,6 +217,39 @@ class _LangFuseSink:
                 self.client.flush()
         except Exception:
             return
+
+
+def read_trace(path: str | Path) -> list[dict[str, Any]]:
+    with open(path) as f:
+        return [json.loads(line) for line in f if line.strip()]
+
+
+def summarize_trace(path: str | Path) -> list[dict[str, Any]]:
+    events = read_trace(path)
+    rows: dict[str, dict[str, Any]] = {}
+    for event in events:
+        if event.get("event") != "span_end":
+            continue
+        role = str(event.get("name"))
+        row = rows.setdefault(role, {
+            "role": role,
+            "calls": 0,
+            "total_ms": 0.0,
+            "avg_ms": 0.0,
+            "errors": 0,
+            "fallbacks": 0,
+        })
+        row["calls"] += 1
+        row["total_ms"] += float(event.get("duration_ms") or 0)
+        row["errors"] += 1 if event.get("error") else 0
+        output = event.get("output") or {}
+        reliability = output.get("reliability") if isinstance(output, dict) else None
+        if isinstance(reliability, dict) and reliability.get("fallback") not in (None, "none"):
+            row["fallbacks"] += 1
+    for row in rows.values():
+        row["total_ms"] = round(row["total_ms"], 3)
+        row["avg_ms"] = round(row["total_ms"] / row["calls"], 3) if row["calls"] else 0.0
+    return sorted(rows.values(), key=lambda item: item["total_ms"], reverse=True)
 
 
 def get_trace_recorder() -> TraceRecorder:

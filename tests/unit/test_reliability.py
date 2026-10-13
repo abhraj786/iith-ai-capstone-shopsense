@@ -8,7 +8,7 @@ from qdrant_client import QdrantClient
 from capstone.agents.policy_agent import PolicyAgent
 from capstone.llm.client import LLMClient
 from capstone.memory.store import CustomerMemoryStore
-from capstone.observability.tracing import TraceRecorder
+from capstone.observability.tracing import TraceRecorder, read_trace, summarize_trace
 from capstone.rag.hybrid import HybridPolicyRetriever
 from capstone.rag.policy_index import PolicyIndex
 from capstone.reliability.tools import CircuitBreaker, ReliableToolGateway, RetryPolicy
@@ -123,5 +123,22 @@ def test_team_falls_back_to_human_queue_and_writes_trace(tmp_path):
     assert result.action_proposal["tool_name"] == "flag_for_human"
     assert result.action_proposal["tool_result"]["routes_to"] == "agent"
     assert result.trace["trace_id"]
-    assert (tmp_path / "traces" / f"{result.trace['trace_id']}.jsonl").exists()
+    trace_path = tmp_path / "traces" / f"{result.trace['trace_id']}.jsonl"
+    assert trace_path.exists()
+
+    events = read_trace(trace_path)
+    trace_start = next(event for event in events if event["event"] == "trace_start")
+    assert trace_start["session_id"] == result.trace["trace_id"]
+    assert trace_start["user_id"] == "KW-C-00285"
+    assert "m7" in trace_start["tags"]
+
+    span_starts = [event for event in events if event["event"] == "span_start"]
+    tool_span = next(event for event in span_starts if event["name"] == "tool.track_shipment")
+    order_agent_span = next(event for event in span_starts if event["name"] == "Order-Actions Agent")
+    assert tool_span["parent_span_id"] == order_agent_span["span_id"]
+
+    summary = summarize_trace(trace_path)
+    by_role = {row["role"]: row for row in summary}
+    assert by_role["tool.track_shipment"]["fallbacks"] == 1
+    assert by_role["Order-Actions Agent"]["calls"] == 1
 

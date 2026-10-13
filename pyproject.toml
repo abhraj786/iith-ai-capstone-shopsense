@@ -15,7 +15,7 @@ dependencies = [
     "langgraph>=0.2.60",
     "langgraph-checkpoint-sqlite>=3.0",
     "mcp>=1.13,<2",
-    "langfuse>=2.60,<4",
+    "langfuse==4.14.0",
     "qdrant-client>=1.12",
     "socksio>=1.0",
     "tenacity>=8",

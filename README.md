@@ -167,6 +167,26 @@ The tests cover retrying transient failures, opening a circuit after repeated
 failures, falling back to the human queue when an order/shipping tool is down,
 and writing an inspectable trace JSONL file.
 
+Run the lab-style seeded reliability benchmark:
+
+```bash
+python scripts/run_reliability_benchmark.py --n 200
+```
+
+Expected:
+
+```text
+stage,ok,transient_or_fallback,malformed,success_or_handled_rate
+baseline,114,70,16,0.570
+hardened,179,21,0,1.000
+```
+
+Summarize any emitted trace as a small latency/fallback dashboard:
+
+```bash
+python scripts/summarize_trace.py runtime/traces/<trace_id>.jsonl
+```
+
 ## Run M1 Evaluation
 
 The evaluation sends only `raw_text` and `channel` to the LLM. Ground-truth labels remain local and are used only after parsing to score the output.
@@ -258,7 +278,11 @@ M7 adds observability and reliability around the M6 agent/tool boundary.
 
 - `TraceRecorder` writes one JSONL trace per ticket flow under `runtime/traces/`.
 - If LangFuse keys are configured, the same trace/span events are forwarded to LangFuse.
+- Each trace has session/user metadata and tags for filtering.
 - Each multi-agent step is traced: triage, memory, policy RAG, order action, and escalation review.
-- `ReliableToolGateway` retries transient tool failures.
+- Policy retrieval and concrete tool calls are nested child spans.
+- `scripts/summarize_trace.py` builds the local per-span latency/error/fallback table.
+- `ReliableToolGateway` retries transient tool failures with exponential backoff.
 - `CircuitBreaker` opens after repeated failures and avoids hammering a down tool.
-- Transient tool failures fall back to the human queue so customer cases are not dropped.
+- Transient and malformed tool failures fall back to the human queue so customer cases are not dropped.
+- `scripts/run_reliability_benchmark.py` provides a seeded before/after hardening benchmark.
