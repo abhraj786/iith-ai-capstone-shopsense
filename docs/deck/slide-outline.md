@@ -17,6 +17,7 @@ M2: Safe Action Planning
 M3: Customer Memory and Policy Index
 M4: Grounded Policy RAG
 M6: Multi-Agent Team and MCP Tools
+M7: Tracing and Reliability
 
 ## Slides
 
@@ -35,7 +36,8 @@ M6: Multi-Agent Team and MCP Tools
 13. Repository structure
 14. M5 LangGraph workflow
 15. M6 multi-agent team
-16. Next milestone: M7 tracing and reliability
+16. M7 tracing and reliability
+17. Next milestone: M8 packaging and guardrails
 
 ## Update Pattern
 

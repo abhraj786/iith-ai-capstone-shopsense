@@ -568,6 +568,7 @@ def _team_view(result) -> dict[str, Any]:
         "action_proposal": result.action_proposal,
         "memory_context": result.memory_context,
         "policy_answer": result.policy_answer,
+        "trace": result.trace,
     }
 
 

@@ -2,7 +2,7 @@
 
 ShopSense customer-care and order-operations capstone for the IIT Hyderabad Applied AI program.
 
-This repository currently implements **M1: Intake Parsing**, **M2: Safe Action Planning**, **M3: Memory + Policy Index**, **M4: Grounded Policy RAG**, **M5: LangGraph Workflow**, and **M6: Multi-Agent Team + MCP Tools**. M1 converts raw customer support messages into validated structured tickets. M2 takes those tickets and proposes the next operational action through deterministic policy tools. M3 persists per-customer interaction memory and builds a Qdrant index over ShopSense policy documents. M4 answers policy questions using hybrid retrieval, reranking, citations, and groundedness checks. M5 connects those modules into a checkpointed workflow with human-approval interrupts. M6 exposes the mock order/refund/shipping APIs through MCP and wraps the system as named agents.
+This repository currently implements **M1: Intake Parsing**, **M2: Safe Action Planning**, **M3: Memory + Policy Index**, **M4: Grounded Policy RAG**, **M5: LangGraph Workflow**, **M6: Multi-Agent Team + MCP Tools**, and **M7: Tracing + Reliability**. M1 converts raw customer support messages into validated structured tickets. M2 takes those tickets and proposes the next operational action through deterministic policy tools. M3 persists per-customer interaction memory and builds a Qdrant index over ShopSense policy documents. M4 answers policy questions using hybrid retrieval, reranking, citations, and groundedness checks. M5 connects those modules into a checkpointed workflow with human-approval interrupts. M6 exposes the mock order/refund/shipping APIs through MCP and wraps the system as named agents. M7 adds trace capture plus retries, circuit breaking, and human-queue fallback for flaky tool calls.
 
 ## What Is Included
 
@@ -21,6 +21,8 @@ This repository currently implements **M1: Intake Parsing**, **M2: Safe Action P
 - M5 LangGraph workflow under `src/capstone/workflow/graph.py`
 - M6 MCP tool server under `src/capstone/mcp/server.py`
 - M6 multi-agent team under `src/capstone/team/multi_agent.py`
+- M7 tracing under `src/capstone/observability/tracing.py`
+- M7 reliability wrappers under `src/capstone/reliability/tools.py`
 - M1 evaluation script under `scripts/run_intake_eval.py`
 - Unit tests under `tests/unit/`
 - Latest committed M1 report under `evaluation/reports/m1_holdout_n60_v4.json`
@@ -52,7 +54,7 @@ python -m pytest tests/unit
 Expected current result:
 
 ```text
-49 passed
+53 passed
 ```
 
 ## Run Local Workbench UI
@@ -70,10 +72,12 @@ http://127.0.0.1:8765
 ```
 
 The UI supports full M1+M2 runs, M2-only runs from pasted `SupportTicket` JSON,
-and M5 workflow runs from JSON. In M5 mode, use the safe sample to see the
-`auto_execute` path and the legal sample to see the `human_interrupt` path, then
-approve or reject the paused workflow from the same screen. Full M1+M2 runs
-require the same `.env` model configuration used by the M1 evaluation script.
+M5 workflow runs from JSON, and M6 multi-agent runs through MCP. In M5 mode,
+use the safe sample to see the `auto_execute` path and the legal sample to see
+the `human_interrupt` path, then approve or reject the paused workflow from the
+same screen. In M6 mode, the output includes named agent steps, MCP transport,
+and M7 trace metadata. Full M1+M2 runs require the same `.env` model
+configuration used by the M1 evaluation script.
 
 Build or refresh the M3/M4 policy index directly:
 
@@ -141,6 +145,27 @@ Expected:
 ```text
 6 passed
 ```
+
+## Run M7 Reliability And Tracing Tests
+
+M7 traces ticket-resolution flows locally and forwards to LangFuse when
+`CAPSTONE_LANGFUSE_PUBLIC_KEY` and `CAPSTONE_LANGFUSE_SECRET_KEY` are present.
+Without keys, traces are still written under `runtime/traces/` so evaluation is
+fully offline-capable.
+
+```bash
+python -m pytest tests/unit/test_reliability.py -q
+```
+
+Expected:
+
+```text
+3 passed
+```
+
+The tests cover retrying transient failures, opening a circuit after repeated
+failures, falling back to the human queue when an order/shipping tool is down,
+and writing an inspectable trace JSONL file.
 
 ## Run M1 Evaluation
 
@@ -226,3 +251,14 @@ M6 separates the system into named agents and exposes the operational tools over
 - `MultiAgentTeam` runs Triage Agent, Memory Agent, Policy RAG Agent, Order-Actions Agent, and Escalation Reviewer Agent.
 - The team accepts a `channel` field, so chat and email tickets use the same tool boundary.
 - Tests verify customer-scoped MCP order access, refund calculator exposure, protocol-backed tool invocation, legal-ticket escalation, and shared tools across chat/email.
+
+## M7 Design
+
+M7 adds observability and reliability around the M6 agent/tool boundary.
+
+- `TraceRecorder` writes one JSONL trace per ticket flow under `runtime/traces/`.
+- If LangFuse keys are configured, the same trace/span events are forwarded to LangFuse.
+- Each multi-agent step is traced: triage, memory, policy RAG, order action, and escalation review.
+- `ReliableToolGateway` retries transient tool failures.
+- `CircuitBreaker` opens after repeated failures and avoids hammering a down tool.
+- Transient tool failures fall back to the human queue so customer cases are not dropped.

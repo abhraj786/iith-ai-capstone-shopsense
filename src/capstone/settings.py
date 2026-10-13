@@ -27,6 +27,14 @@ class Settings(BaseSettings):
     llm_rate_limit_retries: int = 4
     llm_rate_limit_backoff_s: float = 8.0  # doubles on each retry
 
+    # M7 tracing/reliability. LangFuse forwarding is enabled only when keys are present.
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: str | None = None
+    langfuse_host: str | None = None
+    tool_retry_attempts: int = 2
+    tool_circuit_failure_threshold: int = 2
+    tool_circuit_cooldown_s: float = 30.0
+
     def _resolve(self, path: Path) -> Path:
         return path if path.is_absolute() else PROJECT_ROOT / path
 

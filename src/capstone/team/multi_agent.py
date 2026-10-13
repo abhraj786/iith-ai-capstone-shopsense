@@ -15,11 +15,14 @@ from capstone.llm.client import LLMClient
 from capstone.mcp.client import MCPShopSenseToolGateway
 from capstone.mcp.tools import ShopSenseToolGateway
 from capstone.memory.store import CustomerMemoryStore, get_memory_store
+from capstone.observability.tracing import TraceRecorder, get_trace_recorder
 from capstone.rag.hybrid import HybridPolicyRetriever
 from capstone.rag.policy_index import PolicyIndex
+from capstone.reliability.tools import ReliableToolGateway
 from capstone.schemas.actions import ActionProposal, RecommendedAction
 from capstone.schemas.intake import SupportTicket
 from capstone.settings import get_settings
+from capstone.tools import actions
 from capstone.tools.repository import Repository, get_repository
 
 
@@ -38,6 +41,7 @@ class TeamResult(BaseModel):
     memory_context: dict[str, Any]
     escalation_review: dict[str, Any]
     steps: list[AgentStep]
+    trace: dict[str, Any] = Field(default_factory=dict)
 
 
 @dataclass
@@ -49,6 +53,8 @@ class MultiAgentTeam:
     policy_agent: PolicyAgent | None = None
     tool_gateway: ShopSenseToolGateway | MCPShopSenseToolGateway | None = None
     use_mcp_tools: bool = False
+    reliable_tools: bool = True
+    tracer: TraceRecorder | None = None
 
     def __post_init__(self) -> None:
         if self.policy_index is None:
@@ -59,6 +65,10 @@ class MultiAgentTeam:
             self.policy_agent = PolicyAgent(HybridPolicyRetriever(self.policy_index))
         if self.tool_gateway is None:
             self.tool_gateway = MCPShopSenseToolGateway() if self.use_mcp_tools else ShopSenseToolGateway(self.repo)
+        if self.reliable_tools and not isinstance(self.tool_gateway, ReliableToolGateway):
+            self.tool_gateway = ReliableToolGateway(self.tool_gateway)
+        if self.tracer is None:
+            self.tracer = get_trace_recorder()
 
     def resolve(
         self,
@@ -71,44 +81,54 @@ class MultiAgentTeam:
     ) -> TeamResult:
         run_date = date.fromisoformat(today)
         steps: list[AgentStep] = []
-
-        ticket = parse_ticket(
-            self.client,
-            raw_text,
-            channel=channel,
-            auto_refund_cap_inr=2000,
-            repeat_contact_threshold=3,
+        trace = self.tracer.start_trace(
+            "shopsense.ticket_resolution",
+            metadata={"channel": channel, "customer_ref": customer_ref, "tool_transport": self.tool_transport},
         )
+
+        with trace.span("Triage Agent", metadata={"channel": channel}):
+            ticket = parse_ticket(
+                self.client,
+                raw_text,
+                channel=channel,
+                auto_refund_cap_inr=2000,
+                repeat_contact_threshold=3,
+            )
         steps.append(AgentStep(
             agent="Triage Agent",
             summary="Parsed raw channel text into a validated SupportTicket.",
             output=ticket.model_dump(mode="json"),
         ))
 
-        memory_context = self.memory_store.customer_context(customer_ref)
+        with trace.span("Memory Agent", metadata={"customer_ref": customer_ref}):
+            memory_context = self.memory_store.customer_context(customer_ref)
         steps.append(AgentStep(
             agent="Memory Agent",
             summary="Loaded persistent per-customer support context.",
             output=memory_context,
         ))
 
-        policy_query = _policy_query(ticket)
-        policy_answer = self.policy_agent.answer(policy_query)
+        with trace.span("Policy RAG Agent"):
+            policy_query = _policy_query(ticket)
+            policy_answer = self.policy_agent.answer(policy_query)
         steps.append(AgentStep(
             agent="Policy RAG Agent",
             summary="Answered policy question with citations before action planning.",
             output=policy_answer.model_dump(mode="json"),
         ))
 
-        proposal = plan_action(self.repo, ticket, customer_ref, run_date, execute=False)
-        self._apply_tool_result(proposal, customer_ref, ticket.order_ref, today, execute_actions)
+        with trace.span("Order-Actions Agent", metadata={"transport": self.tool_transport}) as span:
+            proposal = plan_action(self.repo, ticket, customer_ref, run_date, execute=False)
+            self._apply_tool_result(proposal, customer_ref, ticket.order_ref, today, execute_actions)
+            span.set_output(proposal.model_dump(mode="json"))
         steps.append(AgentStep(
             agent="Order-Actions Agent",
             summary=f"Planned or executed the safest deterministic tool action via {self.tool_transport}.",
             output=proposal.model_dump(mode="json"),
         ))
 
-        review = self._review(ticket, proposal)
+        with trace.span("Escalation Reviewer Agent"):
+            review = self._review(ticket, proposal)
         steps.append(AgentStep(
             agent="Escalation Reviewer Agent",
             summary="Checked whether the case may be auto-resolved or must wait for a human.",
@@ -124,6 +144,8 @@ class MultiAgentTeam:
         )
         updated_memory = self.memory_store.customer_context(customer_ref)
 
+        trace_result = trace.end(output={"decision": review["decision"], "tool_name": proposal.tool_name})
+
         return TeamResult(
             channel=channel,
             customer_ref=customer_ref,
@@ -133,11 +155,13 @@ class MultiAgentTeam:
             memory_context=updated_memory,
             escalation_review=review,
             steps=steps,
+            trace=trace_result,
         )
 
     @property
     def tool_transport(self) -> str:
-        return "mcp" if isinstance(self.tool_gateway, MCPShopSenseToolGateway) else "python"
+        gateway = self.tool_gateway.gateway if isinstance(self.tool_gateway, ReliableToolGateway) else self.tool_gateway
+        return "mcp" if isinstance(gateway, MCPShopSenseToolGateway) else "python"
 
     def _apply_tool_result(
         self,
@@ -151,36 +175,53 @@ class MultiAgentTeam:
             return
         if proposal.tool_name == "track_shipment" and order_ref:
             proposal.tool_result = self.tool_gateway.track_shipment(customer_ref, order_ref)
+        elif not execute_actions:
             return
-        if not execute_actions:
-            return
-        proposal.executed = True
-        if proposal.tool_name == "issue_refund":
-            proposal.tool_result = self.tool_gateway.issue_refund(
-                customer_ref=customer_ref,
-                order_ref=proposal.tool_args["order_ref"],
-                reason_code=proposal.tool_args["reason_code"],
-                today=today,
-                approved_by=proposal.tool_args.get("approved_by", "auto"),
-            )
-        elif proposal.tool_name == "create_replacement":
-            proposal.tool_result = self.tool_gateway.create_replacement(
-                customer_ref=customer_ref,
-                order_ref=proposal.tool_args["order_ref"],
-                reason=proposal.tool_args["reason"],
-                today=today,
-                approved_by=proposal.tool_args.get("approved_by", "auto"),
-            )
-        elif proposal.tool_name == "flag_for_human":
-            proposal.tool_result = self.tool_gateway.flag_for_human(
-                customer_ref=customer_ref,
-                order_ref=proposal.tool_args.get("order_ref"),
-                trigger=proposal.tool_args["trigger"],
-                note=proposal.tool_args.get("note", ""),
-            )
+        else:
+            proposal.executed = True
+            if proposal.tool_name == "issue_refund":
+                proposal.tool_result = self.tool_gateway.issue_refund(
+                    customer_ref=customer_ref,
+                    order_ref=proposal.tool_args["order_ref"],
+                    reason_code=proposal.tool_args["reason_code"],
+                    today=today,
+                    approved_by=proposal.tool_args.get("approved_by", "auto"),
+                )
+            elif proposal.tool_name == "create_replacement":
+                proposal.tool_result = self.tool_gateway.create_replacement(
+                    customer_ref=customer_ref,
+                    order_ref=proposal.tool_args["order_ref"],
+                    reason=proposal.tool_args["reason"],
+                    today=today,
+                    approved_by=proposal.tool_args.get("approved_by", "auto"),
+                )
+            elif proposal.tool_name == "flag_for_human":
+                proposal.tool_result = self.tool_gateway.flag_for_human(
+                    customer_ref=customer_ref,
+                    order_ref=proposal.tool_args.get("order_ref"),
+                    trigger=proposal.tool_args["trigger"],
+                    note=proposal.tool_args.get("note", ""),
+                )
         if proposal.tool_result and not proposal.tool_result.get("ok", True):
             proposal.tool_error = proposal.tool_result.get("error")
             proposal.executed = False
+            if proposal.tool_result.get("reliability", {}).get("fallback") == "human_queue":
+                proposal.requires_human = True
+                proposal.recommended_action = RecommendedAction.human_review
+                proposal.tool_name = "flag_for_human"
+                proposal.tool_args = {
+                    "customer_ref": customer_ref,
+                    "order_ref": order_ref,
+                    "trigger": "human_requested",
+                    "note": f"Tool failure fallback: {proposal.tool_error}",
+                }
+                proposal.tool_result = actions.flag_for_human(
+                    self.repo,
+                    customer_ref,
+                    order_ref,
+                    "human_requested",
+                    proposal.tool_args["note"],
+                )
 
     @staticmethod
     def _review(ticket: SupportTicket, proposal: ActionProposal) -> dict[str, Any]:
