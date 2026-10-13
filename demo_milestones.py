@@ -108,6 +108,31 @@ def get_policy_agent(real: bool) -> tuple[PolicyIndex, PolicyAgent, int]:
     return real_policy_agent() if real else offline_policy_agent()
 
 
+def validate_real_environment() -> None:
+    settings = get_settings()
+    missing = []
+    model = settings.llm_model.lower()
+    provider_keys = {
+        "gemini/": "GEMINI_API_KEY",
+        "openai/": "OPENAI_API_KEY",
+        "anthropic/": "ANTHROPIC_API_KEY",
+    }
+    for prefix, env_name in provider_keys.items():
+        if model.startswith(prefix) and not os.getenv(env_name):
+            missing.append(env_name)
+            break
+    if not (os.getenv("QDRANT_URL") or os.getenv("CAPSTONE_QDRANT_URL")):
+        missing.append("QDRANT_URL")
+    if not (os.getenv("QDRANT_API_KEY") or os.getenv("CAPSTONE_QDRANT_API_KEY")):
+        missing.append("QDRANT_API_KEY")
+    if not (settings.langfuse_public_key or os.getenv("LANGFUSE_PUBLIC_KEY")):
+        missing.append("LANGFUSE_PUBLIC_KEY or CAPSTONE_LANGFUSE_PUBLIC_KEY")
+    if not (settings.langfuse_secret_key or os.getenv("LANGFUSE_SECRET_KEY")):
+        missing.append("LANGFUSE_SECRET_KEY or CAPSTONE_LANGFUSE_SECRET_KEY")
+    if missing:
+        raise RuntimeError("Strict real mode missing required external-cloud settings: " + ", ".join(missing))
+
+
 def section(name: str) -> None:
     print(f"\n=== {name} ===")
 
@@ -245,11 +270,11 @@ def demo_m6(real: bool) -> None:
         })
 
 
-def demo_m7() -> None:
+def demo_m7(real: bool) -> None:
     section("M7 Observability And Reliability")
     settings = get_settings()
     with tempfile.TemporaryDirectory() as tmp_raw:
-        tracer = TraceRecorder()
+        tracer = TraceRecorder(require_langfuse=real)
         trace = tracer.start_trace("demo.m7", metadata={"milestone": "M7"}, tags=["demo"])
         with trace.span("tool.track_shipment"):
             gateway = ReliableToolGateway(
@@ -260,7 +285,11 @@ def demo_m7() -> None:
             result = gateway.track_shipment(CUSTOMER_REF, "KW-O-000950")
         trace_info = trace.end(output={"tool_ok": result.get("ok")})
         show({
-            "langfuse_configured": bool(settings.langfuse_public_key and settings.langfuse_secret_key),
+            "langfuse_required": real,
+            "langfuse_configured": bool(
+                (settings.langfuse_public_key or os.getenv("LANGFUSE_PUBLIC_KEY"))
+                and (settings.langfuse_secret_key or os.getenv("LANGFUSE_SECRET_KEY"))
+            ),
             "reliable_tool_result": result,
             "trace": trace_info,
             "trace_summary": summarize_trace(trace_info["path"]),
@@ -313,6 +342,7 @@ def main() -> None:
     try:
         if real:
             print("Running in strict real mode: live LLM + configured Qdrant Cloud; no deterministic fallback.")
+            validate_real_environment()
         ticket = demo_m1(real)
         repo = get_repository()
         proposal = demo_m2(ticket, repo)
@@ -320,7 +350,7 @@ def main() -> None:
         demo_m4(real)
         demo_m5(real)
         demo_m6(real)
-        demo_m7()
+        demo_m7(real)
         demo_m8(ticket, real)
     except LLMError as exc:
         print("\nREAL MODE FAILED: the configured live LLM provider did not return a usable response.")

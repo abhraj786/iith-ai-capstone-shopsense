@@ -108,7 +108,7 @@ python demo_api_client.py
 
 The default demo is deterministic and does not require an LLM key. It sends parsed M8 golden tickets to `/chat` and prints full JSON responses for legal refund, prompt injection, missing order, order tracking, product safety, over-cap refund, and warranty cases.
 
-For examiner-style real testing, add keys to `.env`, then run:
+For examiner-style real testing, add LLM, Qdrant Cloud, and Langfuse keys to `.env`, then run:
 
 ```bash
 python demo_api_client.py --live
@@ -122,7 +122,7 @@ To inspect every milestone individually in one command:
 python demo_milestones.py --real
 ```
 
-This is the preferred grading command. It uses the configured live LLM and Qdrant Cloud. It does not silently fall back to deterministic fixtures. If the provider or cloud service is unavailable, the command stops and prints the exact failed dependency.
+This is the preferred grading command. It first checks that the LLM provider key, Qdrant Cloud key, and Langfuse key are present. Then it uses those external services end to end. It does not silently fall back to deterministic fixtures. If the provider or cloud service is unavailable, the command stops and prints the exact failed dependency.
 
 For a stable no-key smoke test only:
 
@@ -152,13 +152,17 @@ QDRANT_URL=<your-qdrant-url>
 QDRANT_API_KEY=<your-qdrant-api-key>
 QDRANT_COLLECTION=shopsense_policy_m3
 
-# Langfuse for M7/M8 trace forwarding
+# Langfuse for M7/M8 trace forwarding.
+# Either standard Langfuse names or CAPSTONE_ aliases work.
+LANGFUSE_PUBLIC_KEY=<your-public-key>
+LANGFUSE_SECRET_KEY=<your-secret-key>
+LANGFUSE_HOST=https://cloud.langfuse.com
 CAPSTONE_LANGFUSE_PUBLIC_KEY=<your-public-key>
 CAPSTONE_LANGFUSE_SECRET_KEY=<your-secret-key>
 CAPSTONE_LANGFUSE_HOST=https://cloud.langfuse.com
 ```
 
-`python demo_milestones.py --real` is strict: Qdrant Cloud must be reachable and the live LLM provider must respond. `python demo_milestones.py --offline` is intentionally deterministic for local smoke checks. If Langfuse keys are absent, traces are still written locally under `runtime/traces`; when keys are present, the same trace events are forwarded to Langfuse.
+`python demo_milestones.py --real` is strict: Qdrant Cloud must be reachable, the live LLM provider must respond, and Langfuse keys must be configured. `python demo_milestones.py --offline` is intentionally deterministic for local smoke checks. Runtime traces are always written locally under `runtime/traces` for auditability; when Langfuse keys are present, the same trace events are also forwarded to Langfuse.
 
 ## Milestone Verification Matrix
 
@@ -172,7 +176,7 @@ Use the real-mode commands for final review. Use unit tests and offline demos fo
 | M4 | Hybrid policy RAG and groundedness eval | `python scripts/run_policy_eval.py` |
 | M5 | LangGraph workflow with auto path and human interrupt path | `python -m pytest tests/unit/test_workflow.py -q` |
 | M6 | Multi-agent team and MCP-backed tool calls | `python -m pytest tests/unit/test_mcp_tools.py tests/unit/test_multi_agent_team.py -q` |
-| M7 | Tracing, retry, fallback, circuit breaker | `python -m pytest tests/unit/test_reliability.py -q` |
+| M7 | Langfuse tracing, retry, fallback, circuit breaker | `python -m pytest tests/unit/test_reliability.py -q` |
 | M8 | Golden eval, guardrails, FastAPI package | `python scripts/run_m8_golden_eval.py` |
 
 For a single all-up check:
@@ -310,6 +314,16 @@ M7 traces ticket-resolution flows locally and forwards to LangFuse when
 `CAPSTONE_LANGFUSE_PUBLIC_KEY` and `CAPSTONE_LANGFUSE_SECRET_KEY` are present.
 Without keys, traces are still written under `runtime/traces/` so evaluation is
 fully offline-capable.
+
+For the strict external-cloud walkthrough, Langfuse is required:
+
+```bash
+python demo_milestones.py --real
+```
+
+That command initializes the Langfuse client in strict mode and fails early if
+the keys or host are invalid. The regular API and tests keep writing local
+JSONL traces as a durable audit copy.
 
 ```bash
 python -m pytest tests/unit/test_reliability.py -q
@@ -490,7 +504,8 @@ M6 separates the system into named agents and exposes the operational tools over
 M7 adds observability and reliability around the M6 agent/tool boundary.
 
 - `TraceRecorder` writes one JSONL trace per ticket flow under `runtime/traces/`.
-- If LangFuse keys are configured, the same trace/span events are forwarded to LangFuse.
+- If Langfuse keys are configured, the same trace/span events are forwarded to Langfuse.
+- In strict real mode, Langfuse initialization is required so the examiner can verify cloud observability instead of only local JSONL traces.
 - Each trace has session/user metadata and tags for filtering.
 - Each multi-agent step is traced: triage, memory, policy RAG, order action, and escalation review.
 - Policy retrieval and concrete tool calls are nested child spans.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import time
 from contextlib import contextmanager
@@ -20,7 +21,7 @@ class TraceRecorder:
     best-effort so missing credentials or package/API drift never breaks the app.
     """
 
-    def __init__(self, root: Path | None = None):
+    def __init__(self, root: Path | None = None, *, require_langfuse: bool = False):
         settings = get_settings()
         self.root = Path(root or (PROJECT_ROOT / settings.runtime_root / "traces"))
         try:
@@ -28,7 +29,7 @@ class TraceRecorder:
         except OSError:
             self.root = Path(tempfile.gettempdir()) / "shopsense-traces"
             self.root.mkdir(parents=True, exist_ok=True)
-        self._langfuse = _LangFuseSink.from_settings(settings)
+        self._langfuse = _LangFuseSink.from_settings(settings, required=require_langfuse)
 
     def start_trace(
         self,
@@ -173,20 +174,30 @@ class _LangFuseSink:
         self._spans: dict[str, Any] = {}
 
     @classmethod
-    def from_settings(cls, settings) -> "_LangFuseSink":
-        if not settings.langfuse_public_key or not settings.langfuse_secret_key:
+    def from_settings(cls, settings, *, required: bool = False) -> "_LangFuseSink":
+        public_key = settings.langfuse_public_key or os.getenv("LANGFUSE_PUBLIC_KEY")
+        secret_key = settings.langfuse_secret_key or os.getenv("LANGFUSE_SECRET_KEY")
+        host = settings.langfuse_host or os.getenv("LANGFUSE_HOST")
+        if not public_key or not secret_key:
+            if required:
+                raise RuntimeError(
+                    "Strict real mode requires Langfuse keys. Set CAPSTONE_LANGFUSE_PUBLIC_KEY "
+                    "and CAPSTONE_LANGFUSE_SECRET_KEY, or LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY."
+                )
             return cls()
         try:
             from langfuse import Langfuse
 
             kwargs = {
-                "public_key": settings.langfuse_public_key,
-                "secret_key": settings.langfuse_secret_key,
+                "public_key": public_key,
+                "secret_key": secret_key,
             }
-            if settings.langfuse_host:
-                kwargs["host"] = settings.langfuse_host
+            if host:
+                kwargs["host"] = host
             return cls(Langfuse(**kwargs))
-        except Exception:
+        except Exception as exc:
+            if required:
+                raise RuntimeError(f"Could not initialize Langfuse client: {type(exc).__name__}: {exc}") from exc
             return cls()
 
     def write(self, event: dict[str, Any]) -> None:
