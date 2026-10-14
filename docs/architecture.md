@@ -11,7 +11,7 @@ ShopSense is a customer-care and order-operations assistant for a retail platfor
 | Component | What it does | Failure mode if this breaks |
 |---|---|---|
 | Intake agent | LLM (LiteLLM) fills a Pydantic `SupportTicket`; a regex screen also flags prompt injection (English, Hinglish, delimiter breakout) | Wrong intent or order, or a missed injection, so the wrong tool runs |
-| Memory | SQLite customer history and repeat-contact count | Repeat contacts are not escalated |
+| Memory | One JSON file per customer (preferences, ticket history, rolling summary), written after each ticket. Repeat-contact escalation is decided from the ticket's `contact_number` (threshold 3), not from this file | History is lost or leaks between customers |
 | Tools (MCP server/client) | Deterministic customer-scoped lookups; the refund amount is computed from the order value, not the claimed amount | Another customer's order is exposed, or a wrong refund figure |
 | Policy RAG | Gemini `gemini-embedding-001` (768d) in Qdrant, plus BM25 score fusion and an optional cross-encoder; the order category excludes the other categories' addenda | The answer cites the wrong category window (for example groceries vs apparel) |
 | Action planner and guardrails | Deterministic rules, cap and escalation signals (angry, legal, safety, above cap, repeat, human requested, delivery dispute) | An unsafe auto-action. This is the most critical component. |
