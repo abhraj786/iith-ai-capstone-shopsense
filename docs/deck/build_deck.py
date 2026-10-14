@@ -198,7 +198,7 @@ for i, txt in enumerate(payload):
 s = new_slide("M2: rules decide, and stop at the first red flag", "Module 2  |  action planning on the same sample",
     "Same customer as M1. The ticket from M1 comes in with two signals: angry_or_abusive and refund_above_auto_cap. M2 first checks the order ID is present, then walks its priority list of red flags: legal, safety, above cap. Above cap matches, so it stops and flags for a human. The tools are never called on this path. If they had been, the answer would be the same: the order is this customer's, delivered 3 days ago, eligible, the refund would be 12999 computed from the order price (never from the claim), and the required approver is ops_manager, who is a human. M2 uses no LLM, so the customer's wording cannot change the outcome. The injection flag is acted on by the guardrail layer in M8, not by M2. Run: pytest tests/unit/test_action_agent.py tests/unit/test_tools.py. Contrast: a calm customer asking for Rs 299 back on their own recent Furniture order gets an automatic refund, because every check passes and the approver is auto.")
 cx = [1.4, 2.95, 4.5, 6.05]
-names = [("M1 ticket", GREY), ("plan_action", NAVY), ("Tools + data", NAVY), ("Human queue", AMBER)]
+names = [("M1 ticket", GREY), ("plan_action", NAVY), ("Read-only tools", NAVY), ("Human queue", AMBER)]
 for x, (n, c) in zip(cx, names):
     node(s, x - 0.7, 1.65, 1.4, 0.5, n, fill=c, fg=INK if n == "Human queue" else WHITE)
     ln = s.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, Inches(x), Inches(2.15), Inches(x), Inches(6.85))
@@ -210,7 +210,7 @@ payload = [
     'SupportTicket (angry, order KW-O-000000, claim 12999, signals [angry_or_abusive, refund_above_auto_cap], injection = true)   customer KW-C-00317   today 2026-07-16   execute = False',
     'order_ref = KW-O-000000 is present, so no request for more information',
     'Priority list: legal no, safety no, refund_above_auto_cap YES. Stop at the first match. (angry also present but ranks lower)',
-    'Tools not consulted. Had they run: order is this customer\'s, delivered 3 days ago, eligible, refund 12999 from the order price, approver = ops_manager (human)',
+    'Read-only tools not consulted. Had they run: order is this customer\'s, delivered 3 days ago, eligible, refund 12999 from the order price, approver = ops_manager (human)',
     'flag_for_human(customer KW-C-00317, order KW-O-000000, trigger = refund_above_auto_cap, note = "Angry, damaged order, demands 12999.")   proposed only, nothing written',
     'ActionProposal: human_review, requires_human = true, executed = false, "Route to a human because of refund_above_auto_cap"',
 ]
@@ -224,7 +224,7 @@ def note(i, x, w, txt, fill, line, color):
 msg(0, 0, 1, "1 Ticket in")
 note(1, 2.0, 1.9, "2 Order ID present", LIGHT, GREY, INK)
 note(2, 2.0, 3.6, "3 Red flag: above cap. STOP", RGBColor(0xFD, 0xEC, 0xEA), RED, RED)
-msg(3, 1, 2, "4 Tools not called", color=RGBColor(0xB8, 0xC7, 0xDA))
+msg(3, 1, 2, "4 Rules not run", color=RGBColor(0xB8, 0xC7, 0xDA))
 msg(4, 1, 3, "5 Flag for human", color=AMBER)
 msg(5, 1, 0, "6 ActionProposal", color=RGBColor(0x2E, 0x7D, 0x32))
 label(s, 7.0, 1.6, 5.5, 0.4, "WHAT HAPPENS AT EACH STEP (SAME SAMPLE AS M1)", size=11, bold=True, color=TEAL)
@@ -236,23 +236,23 @@ for i, txt in enumerate(payload):
 
 # M2 three cases
 s = new_slide("M2: one rule set, three tickets, three outcomes", "Module 2  |  with and without the red flag",
-    "Left: the hostile ticket from M1. The red flag stops M2 before any tool runs. Middle: the same ticket with the red flags removed (tested). The tools do run, and they reach the same human review, now from checked facts: the order is 12999, so the approver is ops_manager. Right: a calm 299 rupee damaged order. Every check passes and the approver is auto, so M2 proposes a replacement. Message: the red flag is a shortcut, the value rule is the safety net, and only small, clean, in-policy tickets proceed automatically. All three are proposals (execute = False); nothing is written. Tool order: check_eligibility always first; if it flags a dispute or says not eligible, M2 stops there and routes to a human, so calculate_refund and required_approver never run (for example an order outside its return window). calculate_refund runs only when eligible; required_approver only after the amount is known. A ToolError (unknown order, another customer's order) also routes to a human. Verified by running plan_action with the tool functions wrapped to record calls.")
+    "Left: the hostile ticket from M1. The red flag stops M2 before any tool runs. Middle: the same ticket with the red flags removed (tested). The tools do run, and they reach the same human review, now from checked facts: the order is 12999, so the approver is ops_manager. Right: a calm 299 rupee damaged order. Every check passes and the approver is auto, so M2 proposes a replacement. Message: the red flag is a shortcut, the value rule is the safety net, and only small, clean, in-policy tickets proceed automatically. All three are proposals (execute = False); nothing is written. Terms: the three checks are read-only tools (plain Python rules over the order and policy tables, no LLM, they change nothing). The action tools (issue_refund, create_replacement, flag_for_human) are the only ones that can change data, and M2 only proposes them (execute = False). Order: check_eligibility always first; if it flags a dispute or says not eligible, M2 stops there and routes to a human, so calculate_refund and required_approver never run (for example an order outside its return window). calculate_refund runs only when eligible; required_approver only after the amount is known. A ToolError (unknown order, another customer's order) also routes to a human. Verified by running plan_action with the tool functions wrapped to record calls.")
 GREEN = RGBColor(0x2E, 0x7D, 0x32)
 for x, col, head, inp, tools, why, out in [
     (0.6, RED, "A  Hostile, red flags on", "KW-C-00317  |  KW-O-000000 (Rs 12,999)\nsignals: angry_or_abusive, refund_above_auto_cap",
-     "None", "Stops at the first red flag: refund_above_auto_cap", "human_review"),
+     "None", "Stops at the first red flag (refund_above_auto_cap), before any rule runs. Outcome: human_review", "Action tool: flag_for_human"),
     (4.7, AMBER, "B  Same ticket, no red flags", "KW-C-00317  |  KW-O-000000 (Rs 12,999)\nsignals: none",
-     "check_eligibility, calculate_refund, required_approver", "Refund 12,999 from the order price; approver = ops_manager (a human)", "human_review"),
+     "check_eligibility, calculate_refund, required_approver", "Refund 12,999 from the order price; approver = ops_manager (a human). Outcome: human_review", "Action tool: flag_for_human"),
     (8.8, GREEN, "C  Calm, small order", "KW-C-00338  |  KW-O-000019 (Rs 299), damaged\nsignals: none",
-     "check_eligibility, calculate_refund, required_approver", "Eligible; approver = auto, so no human needed", "replacement (create_replacement)")]:
+     "check_eligibility, calculate_refund, required_approver", "Eligible; approver = auto, so no human needed. Outcome: replacement", "Action tool: create_replacement")]:
     box(s, x, 1.7, 3.95, 0.6, fill=col)
     label(s, x + 0.12, 1.78, 3.7, 0.5, head, size=16, bold=True, color=WHITE if col != AMBER else INK)
-    for y, h, cap, body in [(2.45, 1.0, "Input", inp), (3.55, 0.95, "Tools called, in order", tools), (4.6, 0.95, "What M2 decides", why)]:
+    for y, h, cap, body in [(2.45, 1.0, "Input", inp), (3.55, 0.95, "Read-only tools (rules in code), in order", tools), (4.6, 0.95, "What M2 decides", why)]:
         label(s, x, y, 3.95, 0.3, cap.upper(), size=11, bold=True, color=TEAL)
         label(s, x, y + 0.28, 3.95, h - 0.28, body.split("\n"), size=12, space=1, bold=(body == "None"))
     box(s, x, 5.7, 3.95, 0.6, fill=col)
     label(s, x + 0.12, 5.78, 3.7, 0.45, out, size=16, bold=True, color=WHITE if col != AMBER else INK)
-label(s, 0.6, 6.45, 12.1, 0.5, "Red flag = shortcut. Value rule = safety net. Each tool runs only if the one before it passes.", size=17, bold=True, color=NAVY)
+label(s, 0.6, 6.45, 12.1, 0.5, "Red flag = shortcut. Value rule = safety net. Each rule runs only if the one before it passes.", size=17, bold=True, color=NAVY)
 
 
 # M3 + M4
