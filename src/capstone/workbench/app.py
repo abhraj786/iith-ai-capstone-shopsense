@@ -687,7 +687,8 @@ def run_pipeline(payload: dict[str, Any], client: LLMClient | None = None,
     ])
     hits = [hit.model_dump(mode="json") for hit in index.search(policy_query, limit=3)]
     answer_agent = policy_agent or PolicyAgent(HybridPolicyRetriever(index))
-    policy_answer = answer_agent.answer(policy_query)
+    category = lookups.order_category(repo or get_repository(), customer_ref, ticket.order_ref)
+    policy_answer = answer_agent.answer(policy_query, category=category)
     return {
         "mode": mode,
         "m1": ticket.model_dump(mode="json"),

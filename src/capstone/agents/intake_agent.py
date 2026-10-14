@@ -15,6 +15,22 @@ from capstone.settings import PROJECT_ROOT
 ORDER_REF = re.compile(r"\bKW-O-\d{6}\b", re.IGNORECASE)
 NEEDS_ORDER = set(IssueType) - {IssueType.product_information, IssueType.other, IssueType.complaint}
 MAX_TEXT_CHARS = 6000
+# Deterministic injection screen. It runs in addition to the model's own flag: ticket text is
+# attacker-controlled, so detection must not depend on the model noticing the attack.
+INJECTION_PATTERNS = [re.compile(p, re.IGNORECASE) for p in (
+    r"\b(ignore|disregard|forget|override|bypass)\b.{0,40}\b(instruction|rule|polic|cap|limit|guideline|prompt)",
+    r"\b(system|assistant|developer)\s*(prompt|message|override|:)",
+    r"</?\s*(ticket|system|instructions?)\s*>",
+    r"\byou are now\b|\bnew (directive|instructions?)\b|\bpre-?approved\b|\bauthori[sz]ed by (the )?(admin|management|manager|ceo)\b",
+    r"\b(admin|manager|management)\b.{0,40}\b(permission|approved|authori[sz]ed|allow(ed)?)\b",
+    r"\b(cap|limit)\s+(hata|remove|lift|waive)|\b(hata|remove|lift|waive)\w*\s+(the\s+)?(cap|limit)\b",
+    r"\bapprove\b.{0,30}\b(without|skip|no)\b.{0,20}\b(review|check|approval)",
+    r"\b(reveal|print|show|repeat)\b.{0,30}\b(system prompt|instructions|api key|secret)",
+)]
+
+
+def looks_like_injection(text: str) -> bool:
+    return any(p.search(text) for p in INJECTION_PATTERNS)
 CODE_DECIDED_SIGNALS = {
     EscalationSignal.refund_above_auto_cap,
     EscalationSignal.repeat_contact,
@@ -40,6 +56,10 @@ def parse_ticket(client: LLMClient, raw_text: str, channel: str | None = None,
         ticket.missing_fields.append("order_ref")
     if ticket.order_ref and "order_ref" in ticket.missing_fields:
         ticket.missing_fields.remove("order_ref")
+
+    # Ticket text is attacker-controlled, so a regex screen can only add to the model's injection flag.
+    if looks_like_injection(text):
+        ticket.prompt_injection_suspected = True
 
     # These signals depend on policy thresholds, so discard model guesses before recomputing.
     ticket.escalation_signals = [s for s in ticket.escalation_signals if s not in CODE_DECIDED_SIGNALS]

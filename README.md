@@ -62,14 +62,18 @@ python -m pytest tests/unit -q
 Expected current result:
 
 ```text
-58 passed
+59 passed
 ```
 
-Run the packaged M8 evaluator:
+Run the packaged M8 evaluator (stored tickets, then live LLM parsing), and the M4 retrieval comparison:
 
 ```bash
 python scripts/run_m8_golden_eval.py
+python scripts/run_m8_golden_eval.py --live
+python scripts/run_retrieval_eval.py
 ```
+
+Embeddings use Gemini when `GEMINI_API_KEY` is set, otherwise a hash fallback. Policy answers are filtered by the order's category. See `docs/architecture.md`.
 
 Expected current result:
 
@@ -224,7 +228,7 @@ python -m pytest tests/unit
 Expected current result:
 
 ```text
-58 passed
+59 passed
 ```
 
 ## Run Local Workbench UI

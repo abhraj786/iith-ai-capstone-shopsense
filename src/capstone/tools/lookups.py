@@ -22,6 +22,16 @@ def get_order(repo: Repository, customer_ref: str, order_ref: str) -> dict:
     return {**order, "product_title": product.get("title"), "category": product.get("category")}
 
 
+def order_category(repo: Repository, customer_ref: str, order_ref: str | None) -> str | None:
+    """Product category of a customer's order, or None when it cannot be resolved (used to scope policy RAG)."""
+    if not order_ref:
+        return None
+    try:
+        return get_order(repo, customer_ref, order_ref).get("category")
+    except ToolError:
+        return None
+
+
 def list_orders(repo: Repository, customer_ref: str) -> list[dict]:
     return [
         {k: o[k] for k in ("order_ref", "sku", "order_value_inr", "placed_at", "status")}

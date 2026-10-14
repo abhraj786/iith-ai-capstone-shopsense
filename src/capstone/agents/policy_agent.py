@@ -7,7 +7,7 @@ sentences, and refuses unsupported answers instead of inventing windows, amounts
 import re
 
 from capstone.rag.hybrid import HybridPolicyRetriever
-from capstone.rag.policy_index import PolicyHit, PolicyIndex, _tokens
+from capstone.rag.policy_index import PolicyHit, PolicyIndex, _tokens, category_slug
 from capstone.schemas.policy import PolicyAnswer, PolicyCitation
 
 NUMBER = re.compile(r"\b\d[\d,]*(?:\.\d+)?\b")
@@ -23,22 +23,38 @@ def _query_terms(question: str) -> set[str]:
 
 
 def _sentences(text: str) -> list[str]:
-    parts = [p.strip(" -*") for p in SENTENCE_SPLIT.split(text) if p.strip(" -*")]
-    return [p for p in parts if len(p.split()) >= 5]
+    parts = [p.strip(" -*#") for p in SENTENCE_SPLIT.split(text) if p.strip(" -*#")]
+    # Skip document front matter (title / reference block) and overlong run-ons.
+    return [p for p in parts if len(p.split()) >= 5 and "Document Reference" not in p and len(p) <= 400]
+
+
+def _stem(term: str) -> str:
+    return term[:5]
+
+
+DURATION_QUESTION = re.compile(r"how (long|many days)|deadline|time limit|how much time", re.IGNORECASE)
+
+
+def _stems(question: str) -> set[str]:
+    stems = {_stem(t) for t in _query_terms(question)}
+    if DURATION_QUESTION.search(question):  # "how long do I have" is asking about the window in days
+        stems |= {"windo", "days"}
+    return stems
 
 
 def _evidence_sentences(question: str, hits: list[PolicyHit], limit: int = 4) -> list[str]:
-    terms = _query_terms(question)
+    terms = _stems(question)
     scored: list[tuple[float, str]] = []
     for hit in hits:
         for sentence in _sentences(hit.text):
-            sentence_terms = set(_tokens(sentence.lower()))
+            sentence_terms = {_stem(t) for t in _tokens(sentence.lower())}
             overlap = terms & sentence_terms
             has_number = bool(NUMBER.search(sentence))
-            score = len(overlap) + (0.75 if has_number else 0.0)
-            if any(term in hit.document_slug for term in terms):
+            # A number only counts when the sentence is about the question; otherwise any stray figure wins.
+            score = len(overlap) + (0.75 if has_number and len(overlap) >= 2 else 0.0)
+            if any(term in hit.document_slug for term in _query_terms(question)):
                 score += 0.5
-            if overlap or has_number:
+            if len(overlap) >= 2 or (overlap and has_number):
                 scored.append((score, sentence))
     selected: list[str] = []
     seen: set[str] = set()
@@ -65,9 +81,19 @@ class PolicyAgent:
     def local(cls) -> "PolicyAgent":
         return cls(HybridPolicyRetriever(PolicyIndex.from_settings()))
 
-    def answer(self, question: str, limit: int = 5) -> PolicyAnswer:
-        hits = self.retriever.retrieve(question, limit=limit)
-        evidence = _evidence_sentences(question, hits)
+    def answer(self, question: str, limit: int = 5, category: str | None = None) -> PolicyAnswer:
+        hits = self.retriever.retrieve(question, limit=limit, category=category)
+        # Category addenda deliberately conflict with the baseline policy, so anchor the evidence on the
+        # top-ranked document; only widen to other documents when it cannot supply enough sentences.
+        anchor = category_slug(category) if category else None
+        anchor_slug = anchor if any(h.document_slug == anchor for h in hits) else (hits[0].document_slug if hits else None)
+        primary = [h for h in hits if h.document_slug == anchor_slug]
+        evidence = _evidence_sentences(question, primary)
+        if not evidence:  # conversational wording: fall back to the primary document's figure-bearing sentences
+            evidence = [s for h in primary for s in _sentences(h.text) if NUMBER.search(s)
+                        and _stems(question) & {_stem(t) for t in _tokens(s.lower())}][:2]
+        if len(evidence) < 2:
+            evidence = (evidence + [e for e in _evidence_sentences(question, hits) if e not in evidence])[:4]
         citations = [
             PolicyCitation(document_slug=hit.document_slug, title=hit.title, chunk_id=hit.chunk_id)
             for hit in hits[:3]
