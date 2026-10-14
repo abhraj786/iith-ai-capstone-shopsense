@@ -10,6 +10,7 @@ from pptx.util import Emu, Inches, Pt
 NAVY, TEAL, AMBER, RED = RGBColor(0x14, 0x2B, 0x4D), RGBColor(0x0F, 0x8B, 0x8D), RGBColor(0xE0, 0x9F, 0x1F), RGBColor(0xC0, 0x39, 0x2B)
 INK, GREY, LIGHT, WHITE = RGBColor(0x22, 0x2B, 0x38), RGBColor(0x5F, 0x6B, 0x7A), RGBColor(0xEE, 0xF3, 0xF8), RGBColor(255, 255, 255)
 FONT = "Calibri"
+W = 5.95  # column width for the two-module slides
 
 prs = Presentation()
 prs.slide_width, prs.slide_height = Inches(13.333), Inches(7.5)
@@ -193,36 +194,64 @@ for i, txt in enumerate(payload):
     label(s, 7.05, ry(i) + 0.05, 0.35, 0.4, str(i + 1), size=15, bold=True, color=RED if i == 5 else TEAL, space=0)
     label(s, 7.4, ry(i) + 0.03, 5.3, ROWH - 0.06, txt, size=11, space=0)
 
-# M2 + M3
-s = new_slide("M2 and M3: tools do the math, memory knows the customer", "Modules 2 and 3  |  safe actions and memory",
-    "For M2, the refund amount comes from the order value in the tool, not from the customer's claim, and the cap is enforced in code. For M3 there are two stores: SQLite for who the customer is, Qdrant for what the rules are. Repeat contacts of 3 or more feed the escalation signals.")
-W = 5.95
-column(s, 0.6, W, "M2", "Safe action planning", [
-    ("What", ["- Plans: track, replace, refund, ask for info, human review"], 0.5),
-    ("How", ["- Lookups are customer-scoped; other customers' orders refused", "- Refund computed from order value; Rs 2000 auto-cap in code"], 0.85),
-    ("Proof", ["- 22 unit tests; golden over-cap case blocked (refund_above_auto_cap_blocked)", "- Cross-customer and nonexistent orders handled"], 0.85)])
-column(s, 6.75, W, "M3", "Memory + policy index", [
-    ("What", ["- Past tickets and actions per customer; policy indexed for search"], 0.5),
-    ("How", ["- SQLite memory with rolling summary; 3+ repeat contacts escalate", "- Policy chunks in Qdrant, 768-dim Gemini vectors"], 0.85),
-    ("Proof", ["- Summary visible in /chat output; collection name carries the backend suffix for safe rollback; 5 tests"], 0.85)])
-runbar(s, 6.25, ["pytest tests/unit/test_action_agent.py tests/unit/test_tools.py", "pytest tests/unit/test_memory.py tests/unit/test_policy_index.py"])
+# M2 sequence
+s = new_slide("M2: rules decide, and stop at the first red flag", "Module 2  |  action planning on the same sample",
+    "Same customer as M1. The ticket from M1 comes in with two signals: angry_or_abusive and refund_above_auto_cap. M2 first checks the order ID is present, then walks its priority list of red flags: legal, safety, above cap. Above cap matches, so it stops and flags for a human. The tools are never called on this path. If they had been, the answer would be the same: the order is this customer's, delivered 3 days ago, eligible, the refund would be 12999 computed from the order price (never from the claim), and the required approver is ops_manager, who is a human. M2 uses no LLM, so the customer's wording cannot change the outcome. The injection flag is acted on by the guardrail layer in M8, not by M2. Run: pytest tests/unit/test_action_agent.py tests/unit/test_tools.py. Contrast: a calm customer asking for Rs 299 back on their own recent Furniture order gets an automatic refund, because every check passes and the approver is auto.")
+cx = [1.4, 2.95, 4.5, 6.05]
+names = [("M1 ticket", GREY), ("plan_action", NAVY), ("Tools + data", NAVY), ("Human queue", AMBER)]
+for x, (n, c) in zip(cx, names):
+    node(s, x - 0.7, 1.65, 1.4, 0.5, n, fill=c, fg=INK if n == "Human queue" else WHITE)
+    ln = s.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, Inches(x), Inches(2.15), Inches(x), Inches(6.85))
+    ln.line.color.rgb, ln.line.width = RGBColor(0xB8, 0xC7, 0xDA), Pt(1.5)
+    ln.line.dash_style = MSO_LINE.DASH
+ROW0, ROWH = 2.25, 0.72
+def ry(i): return ROW0 + i * ROWH
+payload = [
+    'SupportTicket (angry, order KW-O-000000, claim 12999, signals [angry_or_abusive, refund_above_auto_cap], injection = true)   customer KW-C-00317   today 2026-07-16   execute = False',
+    'order_ref = KW-O-000000 is present, so no request for more information',
+    'Priority list: legal no, safety no, refund_above_auto_cap YES. Stop at the first match. (angry also present but ranks lower)',
+    'Tools not consulted. Had they run: order is this customer\'s, delivered 3 days ago, eligible, refund 12999 from the order price, approver = ops_manager (human)',
+    'flag_for_human(customer KW-C-00317, order KW-O-000000, trigger = refund_above_auto_cap, note = "Angry, damaged order, demands 12999.")   proposed only, nothing written',
+    'ActionProposal: human_review, requires_human = true, executed = false, "Route to a human because of refund_above_auto_cap"',
+]
+def msg(i, a, b, txt, color=GREY):
+    y = ry(i) + 0.45
+    arrow(s, cx[a], y, cx[b], y, color=color)
+    label(s, min(cx[a], cx[b]) + 0.03, y - 0.3, abs(cx[b] - cx[a]) - 0.06, 0.28, txt, size=11, color=INK, align=PP_ALIGN.CENTER, space=0)
+def note(i, x, w, txt, fill, line, color):
+    box(s, x, ry(i) + 0.08, w, 0.55, fill=fill, line=line)
+    label(s, x + 0.05, ry(i) + 0.16, w - 0.1, 0.4, txt, size=11, bold=True, color=color, align=PP_ALIGN.CENTER, space=0)
+msg(0, 0, 1, "1 Ticket in")
+note(1, 2.0, 1.9, "2 Order ID present", LIGHT, GREY, INK)
+note(2, 2.0, 3.6, "3 Red flag: above cap. STOP", RGBColor(0xFD, 0xEC, 0xEA), RED, RED)
+msg(3, 1, 2, "4 Tools not called", color=RGBColor(0xB8, 0xC7, 0xDA))
+msg(4, 1, 3, "5 Flag for human", color=AMBER)
+msg(5, 1, 0, "6 ActionProposal", color=RGBColor(0x2E, 0x7D, 0x32))
+label(s, 7.0, 1.6, 5.5, 0.4, "WHAT HAPPENS AT EACH STEP (SAME SAMPLE AS M1)", size=11, bold=True, color=TEAL)
+for i, txt in enumerate(payload):
+    fillc = RGBColor(0xFD, 0xEC, 0xEA) if i == 2 else LIGHT
+    box(s, 7.0, ry(i) + 0.02, 5.75, ROWH - 0.06, fill=fillc, shape=MSO_SHAPE.RECTANGLE)
+    label(s, 7.05, ry(i) + 0.05, 0.35, 0.4, str(i + 1), size=15, bold=True, color=RED if i == 2 else TEAL, space=0)
+    label(s, 7.4, ry(i) + 0.03, 5.3, ROWH - 0.06, txt, size=11, space=0)
 
-# M4 alone
-s = new_slide("M4: answer from the right policy, in the right category", "Module 4  |  grounded policy RAG",
-    "Dense alone has the best hit@1, but hybrid reaches recall@3 of 1.0. The bigger win was the category filter: answers went from 22 of 24 to 24 of 24 correct, because groceries, apparel and electronics have different return windows. The answer step is extractive: it quotes sentences from the policy and writes nothing new, so it cannot invent a policy.")
-box(s, 0.6, 1.7, 7.4, 0.6, fill=NAVY)
-label(s, 0.75, 1.76, 7.1, 0.5, "Retrieval comparison (24 questions)", size=17, bold=True, color=WHITE)
-table(s, 0.6, 2.5, 7.4, [
+# M3 + M4
+s = new_slide("M3 and M4: remember the customer, answer from the right policy", "Modules 3 and 4  |  memory and policy RAG",
+    "Two stores: SQLite for who the customer is, Qdrant for what the rules are. Repeat contacts of 3 or more feed the escalation signals. Dense alone has the best hit@1, but hybrid reaches recall@3 of 1.0. The bigger win was the category filter: answers went from 22 of 24 to 24 of 24 correct, because groceries, apparel and electronics have different return windows. The answer step is extractive: it quotes policy sentences and writes nothing new.")
+column(s, 0.6, 4.3, "M3", "Memory + index", [
+    ("What", ["- Past tickets and actions per customer; policy indexed for search"], 0.7),
+    ("How", ["- SQLite memory, rolling summary; 3+ repeat contacts escalate", "- Policy chunks in Qdrant, 768-dim Gemini vectors"], 1.1),
+    ("Proof", ["- Summary visible in /chat output; 5 tests"], 0.5)])
+box(s, 5.1, 1.7, 7.6, 0.6, fill=NAVY)
+label(s, 5.25, 1.76, 7.3, 0.5, "M4  Grounded policy RAG  (24 questions)", size=17, bold=True, color=WHITE)
+table(s, 5.1, 2.5, 7.6, [
     ["Retrieval config", "hit@1", "recall@3", "MRR"],
     ["Dense only", "0.917", "0.979", "0.951"],
     ["BM25 only", "0.542", "-", "-"],
     ["Hybrid fused", "0.875", "1.000", "0.931"],
     ["Hybrid + rerank", "0.875", "1.000", "0.924"],
-], [3.0, 1.4, 1.5, 1.5], size=14, row_h=0.5)
-label(s, 0.6, 5.2, 7.4, 0.9, ["Hybrid is kept for its recall@3 of 1.0, which is what the answer step reads."], size=13, color=GREY)
-card(s, 8.3, 1.7, 4.4, 2.2, "With the order category", ["- 24 of 24 answers correct", "- 22 of 24 without it", "- The 2 misses omit the figure; none is wrong"], accent=TEAL, size=13)
-card(s, 8.3, 4.1, 4.4, 2.0, "How it stays grounded", ["- Category excludes other categories' windows", "- Extractive: quotes the policy text, adds nothing"], accent=AMBER, size=13)
-runbar(s, 6.25, ["python scripts/run_retrieval_eval.py", "pytest tests/unit/test_policy_agent.py"])
+], [3.1, 1.4, 1.6, 1.5], size=13, row_h=0.42)
+label(s, 5.1, 4.75, 7.6, 1.3, ["- Answers with the order's category: 24 of 24 (22 without it)", "- The category excludes other categories' return windows", "- Extractive answers quote the policy text; nothing is invented"], size=13, space=3)
+runbar(s, 6.25, ["pytest tests/unit/test_memory.py tests/unit/test_policy_index.py", "python scripts/run_retrieval_eval.py"])
 
 # 6 M5 + M6
 s = new_slide("M5 and M6: a pausable graph run by specialist agents", "Modules 5 and 6  |  workflow and multi-agent",
