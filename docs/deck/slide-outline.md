@@ -23,8 +23,8 @@ M8: Golden Eval and FastAPI Packaging
 
 ## Slides (10, the maximum)
 
-1 Title | 2 Problem | 3 End-to-end architecture
-4 M1 + M2 | 5 M3 + M4 | 6 M5 + M6 | 7 M7 + M8
+1 Title + the one job | 2 End-to-end architecture | 3 M1 sequence diagram (shapes, one sample)
+4 M2 + M3 | 5 M4 | 6 M5 + M6 | 7 M7 + M8
 8 Walkthrough: safe refund vs risky refund | 9 Results, improvements, limits | 10 Demo plan and takeaways
 
 ## Rebuild
