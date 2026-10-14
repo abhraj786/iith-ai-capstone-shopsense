@@ -16,7 +16,7 @@ ShopSense is a customer-care and order-operations assistant for a retail platfor
 | Policy RAG | Gemini `gemini-embedding-001` (768d) in Qdrant, plus BM25 score fusion and an optional cross-encoder; the order category excludes the other categories' addenda | The answer cites the wrong category window (for example groceries vs apparel) |
 | Action planner and guardrails | Deterministic rules, cap and escalation signals (angry, legal, safety, above cap, repeat, human requested, delivery dispute) | An unsafe auto-action. This is the most critical component. |
 | LangGraph workflow | Checkpointed in SQLite, with an interrupt before human review | Lost state or a bypassed approval |
-| Observability | LangFuse traces, retry, fallback and circuit breaker | Failures that nobody can see |
+| Observability and reliability | LangFuse traces; tool calls get retry, circuit breaker and human-queue fallback | Failures that nobody can see |
 
 ## Evaluation results summary
 
@@ -72,7 +72,9 @@ Out of scope in this version:
 
 - Secrets live in a git-ignored `.env`; `.env.example` lists the variables. Never commit keys.
 - Embeddings fall back to the hash backend when no Gemini key is set (`CAPSTONE_EMBEDDINGS=hash`), so tests run offline. Embeddings are cached in `runtime/embedding_cache.json`.
-- Rate limits: retry with backoff on embeddings, and retry, fallback and circuit breaker on the LLM.
+- LLM calls: schema-invalid output is re-asked up to 2 times with the error; 429 rate limits wait and retry (8s, doubling, up to 4 retries); LiteLLM adds 2 network retries; 60s timeout. There is no model-to-model fallback; if the LLM stays down the call raises `LLMError`.
+- Tool calls (M7): 2 attempts with backoff, a per-tool circuit breaker, and a human-queue fallback when it opens.
+- Embeddings: retry with backoff, disk cache, and a hash fallback when no key is set.
 - Logging: LangFuse traces plus local JSONL traces in `runtime/`.
 - Rollback: the Qdrant collection name carries the backend suffix (`_gemini`), so the old collection stays intact. Redeploy the previous git tag.
 - Deferred: container hardening, auth and a public tunnel.
