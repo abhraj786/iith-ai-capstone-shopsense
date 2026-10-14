@@ -15,7 +15,7 @@ W = 5.95  # column width for the two-module slides
 prs = Presentation()
 prs.slide_width, prs.slide_height = Inches(13.333), Inches(7.5)
 BLANK = prs.slide_layouts[6]
-total_slides = 9
+total_slides = 10
 
 
 def text(tf, lines, size=16, color=INK, bold=False, align=None, space=6):
@@ -245,6 +245,44 @@ for x, col, head, l1, l2, l3 in [
     box(s, x, 6.28, 3.95, 0.7, fill=LIGHT)
     label(s, x + 0.06, 6.29, 3.85, 0.7, [l1, l2, (l3, {"bold": True})], size=10, space=0)
 
+
+# M3 memory story + sequence
+s = new_slide("M3: a notebook that spots repeats and keeps facts", "Module 3  |  customer memory, same customer over eight tickets",
+    "Story to tell. She is the angry customer from M1 and M2. 16 Jul: the hostile ticket arrives, memory is empty, so it is contact 1 and gets written down. 17 Jul: she writes again by email, calmer, and adds that parcels should be left at the back gate, the doorbell is broken and she is allergic to peanuts. Memory finds one earlier contact, so this is contact 2. 18 Jul: she asks for an update in chat and never says it is her third message. Memory finds two earlier contacts (16 Jul twitter, 17 Jul email), so code sets contact_number to 3 and adds repeat_contact. M2's rules then send it to a human. Then five tracking questions arrive about other orders. On the eighth ticket, the three oldest are condensed by the LLM, merged with the previous summary, and the summary still holds the order, the back gate, the broken doorbell and the peanut allergy. Three safety points: memory never decides, it only supplies a count that code turns into a flag; the raw tickets are never deleted; if the LLM fails, the ticket is still handled and the same tickets are retried. A message re-sent on the same day and channel is not a new contact, so re-running a demo cannot escalate itself. Checks: pytest tests/unit/test_memory.py tests/unit/test_intake.py and python scripts/run_memory_recall_check.py (real LLM plants a fact and fails if the summary loses it). Full diagram: docs/diagrams/m3_memory_sequence.md.")
+cx = [1.2, 2.6, 4.0, 5.4]
+names = [("Ticket", GREY), ("Memory store", NAVY), ("Customer file", NAVY), ("LLM summary", AMBER)]
+for x, (n, c) in zip(cx, names):
+    node(s, x - 0.62, 1.5, 1.24, 0.5, n, fill=c, fg=INK if n == "LLM summary" else WHITE)
+    ln = s.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, Inches(x), Inches(2.0), Inches(x), Inches(6.1))
+    ln.line.color.rgb, ln.line.width = RGBColor(0xB8, 0xC7, 0xDA), Pt(1.5)
+    ln.line.dash_style = MSO_LINE.DASH
+ROW0, ROWH = 2.08, 0.5
+def ry(i): return ROW0 + i * ROWH
+def msg(i, a, b, txt, color=GREY):
+    y = ry(i) + 0.4
+    arrow(s, cx[a], y, cx[b], y, color=color)
+    label(s, min(cx[a], cx[b]) + 0.02, y - 0.27, abs(cx[b] - cx[a]) - 0.04, 0.26, txt, size=10, color=INK, align=PP_ALIGN.CENTER, space=0)
+msg(0, 0, 1, "1 Ticket, 18 Jul")
+msg(1, 1, 2, "2 Earlier contacts?")
+msg(2, 2, 1, "3 Found: 2", color=GREEN)
+box(s, 1.5, ry(3) + 0.05, 3.9, 0.4, fill=PINK, line=RED)
+label(s, 1.52, ry(3) + 0.1, 3.86, 0.3, "4 Code: contact 3, add repeat_contact", size=10, bold=True, color=RED, align=PP_ALIGN.CENTER, space=0)
+msg(4, 1, 0, "5 Ticket + flag", color=GREEN)
+msg(5, 1, 2, "6 Save event")
+msg(6, 1, 3, "7 Old tickets (8th)", color=AMBER)
+msg(7, 3, 1, "8 New summary", color=GREEN)
+label(s, 6.85, 1.5, 5.9, 0.3, "ONE CUSTOMER, EIGHT TICKETS (REAL RUN)", size=11, bold=True, color=TEAL)
+table(s, 6.85, 1.85, 5.9, [
+    ["Date", "Channel", "Earlier", "Contact", "What memory did"],
+    ["16 Jul", "twitter", "0", "1", "Hostile ticket saved"],
+    ["17 Jul", "email", "1", "2", "Saved: back gate, doorbell, peanut allergy"],
+    ["18 Jul", "chat", "2", "3", "Added repeat_contact"],
+    ["19-23 Jul", "chat", "0", "1", "5 tracking questions"],
+], [1.0, 0.85, 0.75, 0.75, 2.55], size=10.5, row_h=0.48)
+box(s, 6.85, 4.5, 5.9, 1.5, fill=LIGHT)
+label(s, 6.95, 4.54, 5.7, 0.3, "AFTER THE 8TH TICKET: THE 3 OLDEST ARE CONDENSED", size=10, bold=True, color=TEAL, space=0)
+label(s, 6.95, 4.82, 5.7, 1.15, "Customer awaiting replacement and 12999 refund for damaged delivery on order KW-O-000000; checked status on 2026-07-18. Preferences: leave parcels at the back gate due to a broken doorbell. Safety: allergic to peanuts.", size=11, space=0)
+label(s, 0.6, 6.3, 12.1, 0.6, "The notebook never decides. It supplies one number; code turns it into a flag; M2's rules act on it. Newest 5 stay word-for-word, raw tickets are never deleted.", size=14, bold=True, color=NAVY)
 
 # M3 + M4
 s = new_slide("M3 and M4: remember the customer, answer from the right policy", "Modules 3 and 4  |  memory and policy RAG",

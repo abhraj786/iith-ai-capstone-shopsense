@@ -21,12 +21,12 @@ M6: Multi-Agent Team and MCP Tools
 M7: Tracing and Reliability
 M8: Golden Eval and FastAPI Packaging
 
-## Slides (9 of the 10 allowed)
+## Slides (10, the maximum)
 
 1 Title + the one job | 2 End-to-end architecture
 3 M1 sequence (shapes, one sample) | 4 M2 sequence (same sample) + three cases strip
-5 M3 + M4 | 6 M5 + M6 | 7 M7 + M8
-8 Results, improvements, limits | 9 Demo plan and takeaways
+5 M3 memory story + sequence | 6 M3 + M4 | 7 M5 + M6
+8 M7 + M8 | 9 Results, improvements, limits | 10 Demo plan and takeaways
 
 The sample carried through M1 and M2: customer KW-C-00317, order KW-O-000000, claim Rs 12,999.
 Full Mermaid diagrams: `docs/diagrams/`.
