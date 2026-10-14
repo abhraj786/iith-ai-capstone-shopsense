@@ -236,7 +236,7 @@ for i, txt in enumerate(payload):
 
 # M2 three cases
 s = new_slide("M2: one rule set, three tickets, three outcomes", "Module 2  |  with and without the red flag",
-    "Left: the hostile ticket from M1. The red flag stops M2 before any tool runs. Middle: the same ticket with the red flags removed (tested). The tools do run, and they reach the same human review, now from checked facts: the order is 12999, so the approver is ops_manager. Right: a calm 299 rupee damaged order. Every check passes and the approver is auto, so M2 proposes a replacement. Message: the red flag is a shortcut, the value rule is the safety net, and only small, clean, in-policy tickets proceed automatically. All three are proposals (execute = False); nothing is written. Verified by running plan_action with the tool functions wrapped to record calls.")
+    "Left: the hostile ticket from M1. The red flag stops M2 before any tool runs. Middle: the same ticket with the red flags removed (tested). The tools do run, and they reach the same human review, now from checked facts: the order is 12999, so the approver is ops_manager. Right: a calm 299 rupee damaged order. Every check passes and the approver is auto, so M2 proposes a replacement. Message: the red flag is a shortcut, the value rule is the safety net, and only small, clean, in-policy tickets proceed automatically. All three are proposals (execute = False); nothing is written. Tool order: check_eligibility always first; if it flags a dispute or says not eligible, M2 stops there and routes to a human, so calculate_refund and required_approver never run (for example an order outside its return window). calculate_refund runs only when eligible; required_approver only after the amount is known. A ToolError (unknown order, another customer's order) also routes to a human. Verified by running plan_action with the tool functions wrapped to record calls.")
 GREEN = RGBColor(0x2E, 0x7D, 0x32)
 for x, col, head, inp, tools, why, out in [
     (0.6, RED, "A  Hostile, red flags on", "KW-C-00317  |  KW-O-000000 (Rs 12,999)\nsignals: angry_or_abusive, refund_above_auto_cap",
@@ -247,12 +247,12 @@ for x, col, head, inp, tools, why, out in [
      "check_eligibility, calculate_refund, required_approver", "Eligible; approver = auto, so no human needed", "replacement (create_replacement)")]:
     box(s, x, 1.7, 3.95, 0.6, fill=col)
     label(s, x + 0.12, 1.78, 3.7, 0.5, head, size=16, bold=True, color=WHITE if col != AMBER else INK)
-    for y, h, cap, body in [(2.45, 1.0, "Input", inp), (3.55, 0.95, "Tools called", tools), (4.6, 0.95, "What M2 decides", why)]:
+    for y, h, cap, body in [(2.45, 1.0, "Input", inp), (3.55, 0.95, "Tools called, in order", tools), (4.6, 0.95, "What M2 decides", why)]:
         label(s, x, y, 3.95, 0.3, cap.upper(), size=11, bold=True, color=TEAL)
-        label(s, x, y + 0.28, 3.95, h - 0.28, body.split("\n"), size=12, space=1, bold=(cap == "Tools called" and body == "None"))
+        label(s, x, y + 0.28, 3.95, h - 0.28, body.split("\n"), size=12, space=1, bold=(body == "None"))
     box(s, x, 5.7, 3.95, 0.6, fill=col)
     label(s, x + 0.12, 5.78, 3.7, 0.45, out, size=16, bold=True, color=WHITE if col != AMBER else INK)
-label(s, 0.6, 6.45, 12.1, 0.5, "The red flag is a shortcut. The value rule is the safety net. Only small, clean tickets run on their own.", size=17, bold=True, color=NAVY)
+label(s, 0.6, 6.45, 12.1, 0.5, "Red flag = shortcut. Value rule = safety net. Each tool runs only if the one before it passes.", size=17, bold=True, color=NAVY)
 
 
 # M3 + M4
