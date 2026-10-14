@@ -14,6 +14,7 @@ from capstone.agents.policy_agent import PolicyAgent
 from capstone.guardrails import apply_guardrails
 from capstone.llm.client import LLMClient
 from capstone.mcp.client import MCPShopSenseToolGateway
+from capstone.tools.lookups import order_category
 from capstone.mcp.tools import ShopSenseToolGateway
 from capstone.memory.store import CustomerMemoryStore, get_memory_store
 from capstone.observability.tracing import TraceRecorder, get_trace_recorder
@@ -119,7 +120,8 @@ class MultiAgentTeam:
         with trace.span("Policy RAG Agent"):
             policy_query = _policy_query(ticket)
             with trace.span("policy.hybrid_retrieval", metadata={"query": policy_query}):
-                policy_answer = self.policy_agent.answer(policy_query)
+                policy_answer = self.policy_agent.answer(
+                    policy_query, category=order_category(self.repo, customer_ref, ticket.order_ref))
         steps.append(AgentStep(
             agent="Policy RAG Agent",
             summary="Answered policy question with citations before action planning.",

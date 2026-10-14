@@ -1,0 +1,307 @@
+[
+ {
+  "id": "win-electronics",
+  "question": "How many days do I have to return a laptop I bought?",
+  "relevant": [
+   "category-electronics"
+  ],
+  "expected_terms": [
+   "15"
+  ],
+  "forbidden_terms": [
+   "45 days",
+   "7 days"
+  ],
+  "order_category": "Electronics"
+ },
+ {
+  "id": "win-apparel",
+  "question": "What is the return window for a shirt I ordered?",
+  "relevant": [
+   "category-apparel"
+  ],
+  "expected_terms": [
+   "45"
+  ],
+  "forbidden_terms": [
+   "15 days",
+   "7 days"
+  ],
+  "order_category": "Apparel"
+ },
+ {
+  "id": "win-beauty",
+  "question": "Can I return a face cream after 12 days?",
+  "relevant": [
+   "category-beauty"
+  ],
+  "expected_terms": [
+   "10"
+  ],
+  "forbidden_terms": [
+   "45 days"
+  ],
+  "order_category": "Beauty"
+ },
+ {
+  "id": "win-furniture",
+  "question": "I want to send back my sofa, how long do I have?",
+  "relevant": [
+   "category-furniture"
+  ],
+  "expected_terms": [
+   "7"
+  ],
+  "forbidden_terms": [
+   "45 days",
+   "15 days"
+  ],
+  "order_category": "Furniture"
+ },
+ {
+  "id": "win-toys",
+  "question": "Return window for a toy car?",
+  "relevant": [
+   "category-toys"
+  ],
+  "expected_terms": [
+   "20"
+  ],
+  "forbidden_terms": [
+   "45 days",
+   "7 days"
+  ],
+  "order_category": "Toys"
+ },
+ {
+  "id": "win-home-kitchen",
+  "question": "How many days to return a mixer grinder from Home & Kitchen?",
+  "relevant": [
+   "category-home-kitchen"
+  ],
+  "expected_terms": [
+   "30"
+  ],
+  "forbidden_terms": [
+   "45 days",
+   "7 days"
+  ],
+  "order_category": "Home & Kitchen"
+ },
+ {
+  "id": "win-sports",
+  "question": "Can I return a yoga mat within 30 days?",
+  "relevant": [
+   "category-sports-outdoors"
+  ],
+  "expected_terms": [
+   "30"
+  ],
+  "forbidden_terms": [
+   "45 days",
+   "7 days"
+  ],
+  "order_category": "Sports & Outdoors"
+ },
+ {
+  "id": "win-groceries",
+  "question": "Can I return rice or other groceries if I changed my mind?",
+  "relevant": [
+   "category-groceries"
+  ],
+  "expected_terms": [
+   "any circumstances"
+  ],
+  "forbidden_terms": [
+   "30 days",
+   "45 days"
+  ],
+  "order_category": "Groceries"
+ },
+ {
+  "id": "groc-damaged",
+  "question": "How long do I have to report a damaged grocery item?",
+  "relevant": [
+   "category-groceries"
+  ],
+  "expected_terms": [
+   "2 days"
+  ],
+  "forbidden_terms": [
+   "30 days"
+  ],
+  "order_category": "Groceries"
+ },
+ {
+  "id": "fee-electronics",
+  "question": "Is there a restocking fee on an opened phone return?",
+  "relevant": [
+   "category-electronics"
+  ],
+  "expected_terms": [
+   "15%"
+  ],
+  "forbidden_terms": [],
+  "order_category": "Electronics"
+ },
+ {
+  "id": "fee-toys",
+  "question": "What restocking fee applies to an opened toy?",
+  "relevant": [
+   "category-toys"
+  ],
+  "expected_terms": [
+   "5%"
+  ],
+  "forbidden_terms": [],
+  "order_category": "Toys"
+ },
+ {
+  "id": "beauty-warranty",
+  "question": "Is there a warranty on lipstick or skincare?",
+  "relevant": [
+   "category-beauty",
+   "warranty-policy"
+  ],
+  "expected_terms": [
+   "No warranty"
+  ],
+  "forbidden_terms": [],
+  "order_category": "Beauty"
+ },
+ {
+  "id": "baseline-window",
+  "question": "What is the baseline marketplace return window?",
+  "relevant": [
+   "returns-policy"
+  ],
+  "expected_terms": [
+   "30"
+  ],
+  "forbidden_terms": []
+ },
+ {
+  "id": "cap-auto",
+  "question": "What is the maximum refund the automated assistant can approve?",
+  "relevant": [
+   "refund-authority"
+  ],
+  "expected_terms": [
+   "2,000"
+  ],
+  "forbidden_terms": [
+   "10,000"
+  ]
+ },
+ {
+  "id": "tier2",
+  "question": "Who approves a refund of 5,000 rupees?",
+  "relevant": [
+   "refund-authority"
+  ],
+  "expected_terms": [
+   "Team Lead"
+  ],
+  "forbidden_terms": []
+ },
+ {
+  "id": "goodwill",
+  "question": "What is the goodwill credit cap per order?",
+  "relevant": [
+   "refund-authority"
+  ],
+  "expected_terms": [
+   "500"
+  ],
+  "forbidden_terms": []
+ },
+ {
+  "id": "cod-cancel",
+  "question": "Refund for a COD order cancelled before dispatch?",
+  "relevant": [
+   "refund-authority"
+  ],
+  "expected_terms": [
+   "zero"
+  ],
+  "forbidden_terms": []
+ },
+ {
+  "id": "ship-express",
+  "question": "How fast is express delivery to a metro city?",
+  "relevant": [
+   "shipping-policy"
+  ],
+  "expected_terms": [
+   "2 calendar days"
+  ],
+  "forbidden_terms": []
+ },
+ {
+  "id": "warranty-early",
+  "question": "My appliance failed within 30 days of delivery. Replacement or repair?",
+  "relevant": [
+   "warranty-policy"
+  ],
+  "expected_terms": [
+   "replacement"
+  ],
+  "forbidden_terms": []
+ },
+ {
+  "id": "warranty-lowvalue",
+  "question": "Will a product priced under 1,500 rupees be repaired under warranty?",
+  "relevant": [
+   "warranty-policy"
+  ],
+  "expected_terms": [
+   "1,500"
+  ],
+  "forbidden_terms": []
+ },
+ {
+  "id": "repeat-contact",
+  "question": "When does a repeat contact get escalated to a team lead?",
+  "relevant": [
+   "escalation-tone"
+  ],
+  "expected_terms": [
+   "repeat_contact"
+  ],
+  "forbidden_terms": []
+ },
+ {
+  "id": "above-cap-escalation",
+  "question": "What happens when a customer asks for a refund above 2,000 INR?",
+  "relevant": [
+   "escalation-tone",
+   "refund-authority"
+  ],
+  "expected_terms": [
+   "2,000"
+  ],
+  "forbidden_terms": []
+ },
+ {
+  "id": "fraud-rate",
+  "question": "At what return rate is an account flagged for abuse?",
+  "relevant": [
+   "fraud-abuse"
+  ],
+  "expected_terms": [
+   "0.40"
+  ],
+  "forbidden_terms": []
+ },
+ {
+  "id": "fraud-disclose",
+  "question": "Can the bot tell a customer their account is under review?",
+  "relevant": [
+   "fraud-abuse"
+  ],
+  "expected_terms": [
+   "never"
+  ],
+  "forbidden_terms": []
+ }
+]

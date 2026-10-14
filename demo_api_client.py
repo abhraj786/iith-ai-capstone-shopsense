@@ -26,13 +26,13 @@ ROOT = Path(__file__).resolve().parent
 GOLDEN_PATH = ROOT / "data" / "shopsense" / "eval" / "golden_m8_tickets.json"
 
 CASE_IDS = [
-    ("legal high refund", "M8-001-legal-high-refund"),
-    ("prompt injection", "M8-002-prompt-injection-refund"),
-    ("missing order", "M8-003-missing-order"),
-    ("order status", "M8-004-track-order"),
-    ("product safety", "M8-005-product-safety"),
-    ("over-cap refund", "M8-007-over-cap-without-signal"),
-    ("warranty question", "M8-011-warranty"),
+    ("legal high refund", "M8-05-legal-large-refund"),
+    ("prompt injection", "M8-06-injection-ignore-instructions"),
+    ("missing order", "M8-11-missing-order-tracking"),
+    ("order status", "M8-01-track-calm"),
+    ("product safety", "M8-13-product-safety"),
+    ("over-cap refund", "M8-04-angry-large-refund"),
+    ("warranty question", "M8-18-warranty-claim"),
 ]
 
 

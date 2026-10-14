@@ -18,6 +18,8 @@ dependencies = [
     "mcp>=1.13,<2",
     "langfuse==4.14.0",
     "qdrant-client>=1.12",
+    "rank-bm25>=0.2.2",
+    "fastembed>=0.4",
     "socksio>=1.0",
     "tenacity>=8",
     "uvicorn>=0.30",

@@ -27,6 +27,7 @@ from capstone.rag.policy_index import PolicyIndex
 from capstone.schemas.actions import ActionProposal, RecommendedAction
 from capstone.schemas.intake import Sentiment, SupportTicket, Urgency
 from capstone.settings import PROJECT_ROOT, get_settings
+from capstone.tools.lookups import order_category
 from capstone.tools.repository import Repository, get_repository
 
 
@@ -161,7 +162,8 @@ def build_workflow(deps: WorkflowDeps | None = None):
 
     def policy_node(state: TicketWorkflowState) -> TicketWorkflowState:
         ticket = SupportTicket.model_validate(state["ticket"])
-        answer = deps.policy_agent.answer(_policy_query(ticket))
+        category = order_category(deps.repo, state["customer_ref"], ticket.order_ref)
+        answer = deps.policy_agent.answer(_policy_query(ticket), category=category)
         next_state: TicketWorkflowState = {**state, "policy_answer": answer.model_dump(mode="json")}
         return _checkpoint(deps, "policy_check", next_state)
 

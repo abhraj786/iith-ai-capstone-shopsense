@@ -18,6 +18,7 @@ from capstone.rag.policy_index import PolicyIndex
 from capstone.schemas.intake import SupportTicket
 from capstone.team.multi_agent import MultiAgentTeam
 from capstone.settings import PROJECT_ROOT, get_settings
+from capstone.tools.lookups import order_category
 from capstone.tools.repository import get_repository
 
 
@@ -83,7 +84,8 @@ def _chat_from_ticket(request: ChatRequest) -> ChatResponse:
 
     repo = get_repository()
     memory = get_memory_store()
-    policy_answer = _local_policy_agent().answer(_policy_query(ticket))
+    policy_answer = _local_policy_agent().answer(
+        _policy_query(ticket), category=order_category(repo, request.customer_ref, ticket.order_ref))
     proposal = plan_action(repo, ticket, request.customer_ref, date.fromisoformat(request.today), execute=False)
     proposal, guardrails = apply_guardrails(ticket, proposal, policy_answer)
     memory_context = {}

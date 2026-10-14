@@ -6,7 +6,6 @@ hybrid search/reranking, but M3 gives us a real Qdrant collection and stable pol
 
 import hashlib
 import json
-import math
 import os
 import re
 import warnings
@@ -14,8 +13,11 @@ from pathlib import Path
 
 from pydantic import BaseModel
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams
+from qdrant_client.models import (
+    Distance, FieldCondition, Filter, MatchAny, PayloadSchemaType, PointStruct, VectorParams,
+)
 
+from capstone.rag import embeddings
 from capstone.settings import PROJECT_ROOT, get_settings
 
 COLLECTION_NAME = "shopsense_policy_m3"
@@ -33,18 +35,12 @@ class PolicyHit(BaseModel):
 
 
 def _tokens(text: str) -> list[str]:
-    return TOKEN.findall(text.lower())
+    return embeddings._tokens(text)
 
 
 def embed_text(text: str, size: int = VECTOR_SIZE) -> list[float]:
-    vector = [0.0] * size
-    for token in _tokens(text):
-        digest = hashlib.sha1(token.encode("utf-8")).digest()
-        bucket = int.from_bytes(digest[:4], "big") % size
-        sign = 1.0 if digest[4] % 2 == 0 else -1.0
-        vector[bucket] += sign
-    norm = math.sqrt(sum(v * v for v in vector)) or 1.0
-    return [v / norm for v in vector]
+    """Deterministic offline embedding kept for tests; the index itself uses ``embeddings``."""
+    return embeddings.hash_embed(text, size)
 
 
 def _chunk_text(text: str, max_words: int = 180, overlap: int = 35) -> list[str]:
@@ -62,6 +58,11 @@ def _chunk_text(text: str, max_words: int = 180, overlap: int = 35) -> list[str]
     return chunks
 
 
+def category_slug(category: str) -> str:
+    """'Home & Kitchen' -> 'category-home-kitchen'."""
+    return "category-" + "-".join(re.findall(r"[a-z0-9]+", category.lower()))
+
+
 def _point_id(slug: str, chunk_id: int) -> int:
     digest = hashlib.sha1(f"{slug}:{chunk_id}".encode("utf-8")).hexdigest()
     return int(digest[:15], 16)
@@ -77,7 +78,8 @@ class PolicyIndex:
     ):
         self.client = client
         self.corpus_root = Path(corpus_root)
-        self.collection_name = collection_name
+        suffix = embeddings.collection_suffix()
+        self.collection_name = collection_name if collection_name.endswith(suffix) else collection_name + suffix
         self.storage_label = storage_label
 
     @classmethod
@@ -122,35 +124,62 @@ class PolicyIndex:
         if recreate or not self.client.collection_exists(self.collection_name):
             self.client.create_collection(
                 collection_name=self.collection_name,
-                vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
+                vectors_config=VectorParams(size=embeddings.vector_size(), distance=Distance.COSINE),
             )
 
-        points: list[PointStruct] = []
+        records: list[tuple[dict, int, str]] = []
         for doc in self.load_manifest():
-            markdown_path = self.corpus_root / doc["markdown"]
-            text = markdown_path.read_text()
-            for chunk_id, chunk in enumerate(_chunk_text(text)):
-                points.append(PointStruct(
-                    id=_point_id(doc["slug"], chunk_id),
-                    vector=embed_text(chunk),
-                    payload={
-                        "document_slug": doc["slug"],
-                        "title": doc["title"],
-                        "section": doc["section"],
-                        "chunk_id": chunk_id,
-                        "text": chunk,
-                    },
-                ))
+            text = (self.corpus_root / doc["markdown"]).read_text()
+            records.extend((doc, chunk_id, chunk) for chunk_id, chunk in enumerate(_chunk_text(text)))
+        vectors = embeddings.embed_texts([chunk for _, _, chunk in records], task="document")
+        points: list[PointStruct] = []
+        for (doc, chunk_id, chunk), vector in zip(records, vectors):
+            points.append(PointStruct(
+                id=_point_id(doc["slug"], chunk_id),
+                vector=vector,
+                payload={
+                    "document_slug": doc["slug"],
+                    "title": doc["title"],
+                    "section": doc["section"],
+                    "chunk_id": chunk_id,
+                    "text": chunk,
+                },
+            ))
         if points:
             self.client.upsert(collection_name=self.collection_name, points=points)
+        self.ensure_payload_index()
         return len(points)
 
-    def search(self, query: str, limit: int = 5) -> list[PolicyHit]:
+    def ensure_payload_index(self) -> None:
+        """Qdrant Cloud refuses to filter on a field without a payload index; creating it is idempotent."""
+        if getattr(self, "_payload_indexed", False):
+            return
+        self.client.create_payload_index(
+            collection_name=self.collection_name, field_name="document_slug",
+            field_schema=PayloadSchemaType.KEYWORD,
+        )
+        self._payload_indexed = True
+
+    def category_slugs(self) -> list[str]:
+        return [doc["slug"] for doc in self.load_manifest() if doc["slug"].startswith("category-")]
+
+    def excluded_for(self, category: str | None) -> list[str]:
+        """Category addenda that must not be consulted for an order in ``category``."""
+        if not category:
+            return []
+        keep = category_slug(category)
+        return [slug for slug in self.category_slugs() if slug != keep]
+
+    def search(self, query: str, limit: int = 5, exclude_slugs: list[str] | None = None) -> list[PolicyHit]:
+        if exclude_slugs:
+            self.ensure_payload_index()
         response = self.client.query_points(
             collection_name=self.collection_name,
-            query=embed_text(query),
+            query=embeddings.embed_query(query),
             limit=limit,
             with_payload=True,
+            query_filter=Filter(must_not=[FieldCondition(key="document_slug", match=MatchAny(any=exclude_slugs))])
+            if exclude_slugs else None,
         )
         return [
             PolicyHit(score=float(hit.score), **hit.payload)
