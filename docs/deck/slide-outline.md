@@ -25,8 +25,8 @@ M8: Golden Eval and FastAPI Packaging
 
 1 Title + the one job | 2 End-to-end architecture
 3 M1 sequence (shapes, one sample) | 4 M2 sequence (same sample)
-5 M3 + M4 | 6 M5 + M6 | 7 M7 + M8
-8 Walkthrough: safe refund vs risky refund | 9 Results, improvements, limits | 10 Demo plan and takeaways
+5 M2 three cases (red flag on, red flag off, calm small order) | 6 M3 + M4 | 7 M5 + M6
+8 M7 + M8 | 9 Results, improvements, limits | 10 Demo plan and takeaways
 
 The sample carried through M1 and M2: customer KW-C-00317, order KW-O-000000, claim Rs 12,999.
 Full Mermaid diagrams: `docs/diagrams/`.
