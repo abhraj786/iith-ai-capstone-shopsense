@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     llm_rate_limit_retries: int = 4
     llm_rate_limit_backoff_s: float = 8.0  # doubles on each retry
 
+    # M3: condense tickets older than the newest five into an LLM-written history summary.
+    memory_llm_summary: bool = False
+
     # M7 tracing/reliability. LangFuse forwarding is enabled only when keys are present.
     langfuse_public_key: str | None = None
     langfuse_secret_key: str | None = None

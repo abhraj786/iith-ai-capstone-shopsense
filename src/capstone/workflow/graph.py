@@ -144,6 +144,8 @@ def build_workflow(deps: WorkflowDeps | None = None):
             state.get("channel"),
             auto_refund_cap_inr=2000,
             repeat_contact_threshold=3,
+            prior_contacts=lambda t: deps.memory_store.prior_contacts(
+                state["customer_ref"], t.order_ref, t.issue_type.value, state.get("today"), state.get("channel")),
         )
         next_state: TicketWorkflowState = {**state, "ticket": ticket.model_dump(mode="json")}
         return _checkpoint(deps, "triage", next_state)

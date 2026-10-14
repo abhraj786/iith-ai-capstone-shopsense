@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient
 
 from capstone.agents.action_agent import plan_action
+from capstone.agents.intake_agent import apply_contact_count
 from capstone.agents.policy_agent import PolicyAgent
 from capstone.guardrails import apply_guardrails, safe_policy_answer
 from capstone.memory.store import get_memory_store
@@ -79,11 +80,17 @@ def chat(request: ChatRequest) -> ChatResponse:
 
 
 def _chat_from_ticket(request: ChatRequest) -> ChatResponse:
-    ticket = request.support_ticket
-    assert ticket is not None
+    assert request.support_ticket is not None
 
     repo = get_repository()
     memory = get_memory_store()
+    ticket = request.support_ticket.model_copy(deep=True)
+    try:
+        prior = memory.prior_contacts(request.customer_ref, ticket.order_ref, ticket.issue_type.value,
+                                     request.today, request.channel)
+    except (OSError, ValueError):  # unreadable memory must not block the ticket
+        prior = 0
+    apply_contact_count(ticket, prior, 3)
     policy_answer = _local_policy_agent().answer(
         _policy_query(ticket), category=order_category(repo, request.customer_ref, ticket.order_ref))
     proposal = plan_action(repo, ticket, request.customer_ref, date.fromisoformat(request.today), execute=False)

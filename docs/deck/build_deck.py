@@ -248,11 +248,11 @@ for x, col, head, l1, l2, l3 in [
 
 # M3 + M4
 s = new_slide("M3 and M4: remember the customer, answer from the right policy", "Modules 3 and 4  |  memory and policy RAG",
-    "Two stores: a JSON file per customer for who they are and what happened before, Qdrant for what the rules are. Memory is recorded and shown with each answer; it does not change the decision. Repeat-contact escalation comes from the contact_number in the ticket (3 or more), recomputed by code. Dense alone has the best hit@1, but hybrid reaches recall@3 of 1.0. The bigger win was the category filter: answers went from 22 of 24 to 24 of 24 correct, because groceries, apparel and electronics have different return windows. The answer step is extractive: it quotes policy sentences and writes nothing new.")
+    "Two stores: a JSON file per customer for who they are and what happened before, Qdrant for what the rules are. Newest 5 tickets stay verbatim; older ones are condensed by the LLM into a summary merged with the previous one, and a live test plants a fact (back gate, peanut allergy) and checks it survives. Memory also counts earlier contacts on the same order and issue, so the repeat-contact flag (3 or more) works even if the customer does not say it; a re-sent message on the same day and channel is not counted twice. Dense alone has the best hit@1, but hybrid reaches recall@3 of 1.0. The bigger win was the category filter: answers went from 22 of 24 to 24 of 24 correct, because groceries, apparel and electronics have different return windows. The answer step is extractive: it quotes policy sentences and writes nothing new.")
 column(s, 0.6, 4.3, "M3", "Memory + index", [
     ("What", ["- Past tickets and actions per customer; policy indexed for search"], 0.7),
-    ("How", ["- JSON file per customer: tickets, actions, rolling summary", "- Recorded after each ticket; the repeat flag (3+) comes from the ticket itself", "- Policy chunks in Qdrant, 768-dim Gemini vectors"], 1.5),
-    ("Proof", ["- Summary visible in /chat output; 5 tests"], 0.5)])
+    ("How", ["- JSON file per customer; newest 5 tickets verbatim, older condensed by the LLM", "- Counts earlier contacts for the 3+ repeat flag", "- Policy chunks in Qdrant, 768-dim Gemini vectors"], 1.4),
+    ("Proof", ["- Planted-fact recall check passes (live LLM); 6 tests"], 0.5)])
 box(s, 5.1, 1.7, 7.6, 0.6, fill=NAVY)
 label(s, 5.25, 1.76, 7.3, 0.5, "M4  Grounded policy RAG  (24 questions)", size=17, bold=True, color=WHITE)
 table(s, 5.1, 2.5, 7.6, [

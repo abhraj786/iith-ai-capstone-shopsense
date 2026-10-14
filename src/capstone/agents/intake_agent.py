@@ -6,6 +6,7 @@ order ID or miss a threshold; code can't be talked out of it.
 """
 
 import re
+from collections.abc import Callable
 from pathlib import Path
 
 from capstone.llm.client import LLMClient
@@ -43,7 +44,8 @@ def _system_prompt() -> str:
 
 def parse_ticket(client: LLMClient, raw_text: str, channel: str | None = None,
                  auto_refund_cap_inr: float | None = None,
-                 repeat_contact_threshold: int | None = None) -> SupportTicket:
+                 repeat_contact_threshold: int | None = None,
+                 prior_contacts: Callable[[SupportTicket], int] | None = None) -> SupportTicket:
     text = raw_text[:MAX_TEXT_CHARS]
     user = f"Channel: {channel or 'unknown'}\n<ticket>\n{text}\n</ticket>"
     ticket = client.structured(_system_prompt(), user, SupportTicket)
@@ -70,7 +72,14 @@ def parse_ticket(client: LLMClient, raw_text: str, channel: str | None = None,
             and EscalationSignal.refund_above_auto_cap not in ticket.escalation_signals):
         ticket.escalation_signals.append(EscalationSignal.refund_above_auto_cap)
     # Counting contacts against the policy threshold is also arithmetic, so code decides it.
-    if (repeat_contact_threshold is not None and ticket.contact_number >= repeat_contact_threshold
+    apply_contact_count(ticket, prior_contacts(ticket) if prior_contacts else 0, repeat_contact_threshold)
+    return ticket
+
+
+def apply_contact_count(ticket: SupportTicket, prior: int, threshold: int | None) -> SupportTicket:
+    """Contact count = the larger of what the customer says and what memory recorded, plus this one."""
+    ticket.contact_number = max(ticket.contact_number, prior + 1)
+    if (threshold is not None and ticket.contact_number >= threshold
             and EscalationSignal.repeat_contact not in ticket.escalation_signals):
         ticket.escalation_signals.append(EscalationSignal.repeat_contact)
     return ticket

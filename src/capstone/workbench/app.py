@@ -599,6 +599,8 @@ def run_pipeline(payload: dict[str, Any], client: LLMClient | None = None,
             channel=payload.get("channel"),
             auto_refund_cap_inr=2000,
             repeat_contact_threshold=3,
+            prior_contacts=lambda t: (memory_store or get_memory_store()).prior_contacts(
+                customer_ref, t.order_ref, t.issue_type.value, payload.get("today"), payload.get("channel")),
         )
 
     if mode == "m5":

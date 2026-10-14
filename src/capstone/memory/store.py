@@ -6,7 +6,9 @@ Immutable order truth remains in the mock API tables.
 """
 
 import json
+import logging
 from collections import Counter
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -16,13 +18,19 @@ from capstone.schemas.intake import SupportTicket
 from capstone.settings import PROJECT_ROOT, get_settings
 
 SUMMARY_AFTER_TICKETS = 5
-RECENT_TICKET_LIMIT = 5
+RECENT_TICKET_LIMIT = 5  # tickets kept verbatim (working memory); older ones are condensed
+
+log = logging.getLogger(__name__)
+
+# (old ticket events, previous history summary) -> updated history summary
+Summarizer = Callable[[list[dict[str, Any]], str], str]
 
 
 class CustomerMemoryStore:
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, summarizer: Summarizer | None = None):
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
+        self.summarizer = summarizer
 
     def _path(self, customer_ref: str) -> Path:
         safe = customer_ref.replace("/", "_")
@@ -41,6 +49,8 @@ class CustomerMemoryStore:
                     "procedural": "Resolution procedures are enforced by deterministic tools and policies.",
                 },
                 "tickets": [],
+                "history_summary": "",
+                "summarized_upto": 0,
                 "last_updated_at": None,
             }
         memory = json.loads(path.read_text())
@@ -52,6 +62,8 @@ class CustomerMemoryStore:
             "procedural": "Resolution procedures are enforced by deterministic tools and policies.",
         })
         memory.setdefault("tickets", [])
+        memory.setdefault("history_summary", "")
+        memory.setdefault("summarized_upto", 0)
         return memory
 
     def save(self, memory: dict[str, Any]) -> dict[str, Any]:
@@ -63,7 +75,7 @@ class CustomerMemoryStore:
     def remember_preference(self, customer_ref: str, key: str, value: str) -> dict[str, Any]:
         memory = self.load(customer_ref)
         memory.setdefault("preferences", {})[key] = value
-        memory["rolling_summary"] = self._summarize(memory.get("tickets", []), memory["preferences"])
+        memory["rolling_summary"] = self._rolling(memory)
         return self.save(memory)
 
     def append_ticket(self, customer_ref: str, ticket: SupportTicket,
@@ -86,8 +98,50 @@ class CustomerMemoryStore:
             event["requires_human"] = action.requires_human
             event["tool_name"] = action.tool_name
         memory.setdefault("tickets", []).append(event)
-        memory["rolling_summary"] = self._summarize(memory["tickets"], memory.get("preferences", {}))
+        self._condense_old_tickets(memory)
+        memory["rolling_summary"] = self._rolling(memory)
         return self.save(memory)
+
+    def prior_contacts(self, customer_ref: str, order_ref: str | None, issue_type: str,
+                       received_at: str | None = None, channel: str | None = None) -> int:
+        """How many earlier contacts this customer made about the same order and issue.
+
+        Contacts are counted per (date, channel). Passing the current message's own date and
+        channel excludes it, so re-sending the same message on the same day is not a new contact.
+        """
+        if not order_ref:
+            return 0
+        seen = {
+            (t.get("received_at"), t.get("channel"))
+            for t in self.load(customer_ref).get("tickets", [])
+            if t.get("order_ref") == order_ref and t.get("issue_type") == issue_type
+        }
+        seen.discard((received_at, channel))
+        return len(seen)
+
+    def _condense_old_tickets(self, memory: dict[str, Any]) -> None:
+        """Keep the newest tickets verbatim and fold older ones into the history summary.
+
+        Only newly aged-out tickets are sent to the summarizer, together with the previous
+        summary, so earlier facts are carried forward. If the summarizer fails the raw
+        tickets stay on disk and the same tickets are retried on the next write.
+        """
+        if not self.summarizer:
+            return
+        tickets = memory["tickets"]
+        start, cutoff = memory.get("summarized_upto", 0), len(tickets) - RECENT_TICKET_LIMIT
+        if cutoff <= start:
+            return
+        try:
+            memory["history_summary"] = self.summarizer(tickets[start:cutoff], memory.get("history_summary", ""))
+            memory["summarized_upto"] = cutoff
+        except Exception as exc:  # memory must never block handling a ticket
+            log.warning("Memory summarization failed; will retry on the next ticket: %s", exc)
+
+    def _rolling(self, memory: dict[str, Any]) -> str:
+        counts = self._summarize(memory.get("tickets", []), memory.get("preferences", {}))
+        history = memory.get("history_summary")
+        return f"{counts} Earlier history, condensed: {history}" if history else counts
 
     def customer_context(self, customer_ref: str, limit: int = 5) -> dict[str, Any]:
         memory = self.load(customer_ref)
@@ -96,6 +150,7 @@ class CustomerMemoryStore:
             "customer_ref": customer_ref,
             "preferences": memory.get("preferences", {}),
             "rolling_summary": memory.get("rolling_summary"),
+            "history_summary": memory.get("history_summary", ""),
             "memory_types": memory.get("memory_types", {}),
             "recent_tickets": tickets[-limit:],
             "ticket_count": len(tickets),
@@ -137,4 +192,8 @@ class CustomerMemoryStore:
 
 def get_memory_store() -> CustomerMemoryStore:
     settings = get_settings()
-    return CustomerMemoryStore(PROJECT_ROOT / settings.runtime_root / "memory" / "customers")
+    summarizer = None
+    if settings.memory_llm_summary:
+        from capstone.memory.summarizer import make_llm_summarizer  # lazy: needs the LLM stack
+        summarizer = make_llm_summarizer()
+    return CustomerMemoryStore(PROJECT_ROOT / settings.runtime_root / "memory" / "customers", summarizer)

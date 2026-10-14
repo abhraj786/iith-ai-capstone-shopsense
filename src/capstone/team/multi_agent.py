@@ -102,6 +102,8 @@ class MultiAgentTeam:
                 channel=channel,
                 auto_refund_cap_inr=2000,
                 repeat_contact_threshold=3,
+                prior_contacts=lambda t: self.memory_store.prior_contacts(
+                    customer_ref, t.order_ref, t.issue_type.value, today, channel),
             )
         steps.append(AgentStep(
             agent="Triage Agent",

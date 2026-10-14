@@ -156,3 +156,12 @@ def test_injection_screen_catches_english_hinglish_and_delimiter_breakout():
     for text in ["Where is my order KW-O-000123?", "I was charged twice, the limit on my card is low",
                  "The shirt arrived damaged, please replace it"]:
         assert not looks_like_injection(text), text
+
+
+def test_third_contact_is_found_from_memory_even_if_customer_does_not_say_so():
+    ticket = parse_ticket(fake_client(ticket_json(contact_number=1)), "Refund KW-O-000123 please", "email",
+                          repeat_contact_threshold=3, prior_contacts=lambda t: 2)
+    assert ticket.contact_number == 3 and EscalationSignal.repeat_contact in ticket.escalation_signals
+    second = parse_ticket(fake_client(ticket_json(contact_number=1)), "Refund KW-O-000123 please", "email",
+                          repeat_contact_threshold=3, prior_contacts=lambda t: 1)
+    assert second.contact_number == 2 and EscalationSignal.repeat_contact not in second.escalation_signals
