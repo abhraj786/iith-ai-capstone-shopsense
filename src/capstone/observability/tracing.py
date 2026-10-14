@@ -63,6 +63,9 @@ class TraceRecorder:
                 f.write(json.dumps(event, sort_keys=True, default=str) + "\n")
         self._langfuse.write(event)
 
+    def langfuse_url(self, trace_id: str) -> str | None:
+        return self._langfuse.url_for_trace(trace_id)
+
 
 class TraceRun:
     def __init__(
@@ -124,7 +127,11 @@ class TraceRun:
             "ts": ended_at,
         }
         self.recorder.write(event)
-        return {"trace_id": self.trace_id, "path": str(self.recorder.root / f"{self.trace_id}.jsonl")}
+        result = {"trace_id": self.trace_id, "path": str(self.recorder.root / f"{self.trace_id}.jsonl")}
+        langfuse_url = self.recorder.langfuse_url(self.trace_id)
+        if langfuse_url:
+            result["langfuse_url"] = langfuse_url
+        return result
 
 
 class TraceSpan:
@@ -168,10 +175,12 @@ class TraceSpan:
 
 
 class _LangFuseSink:
-    def __init__(self, client: Any | None = None):
+    def __init__(self, client: Any | None = None, *, required: bool = False):
         self.client = client
+        self.required = required
         self._traces: dict[str, Any] = {}
         self._spans: dict[str, Any] = {}
+        self._trace_ids: dict[str, str] = {}
 
     @classmethod
     def from_settings(cls, settings, *, required: bool = False) -> "_LangFuseSink":
@@ -194,7 +203,7 @@ class _LangFuseSink:
             }
             if host:
                 kwargs["host"] = host
-            return cls(Langfuse(**kwargs))
+            return cls(Langfuse(**kwargs), required=required)
         except Exception as exc:
             if required:
                 raise RuntimeError(f"Could not initialize Langfuse client: {type(exc).__name__}: {exc}") from exc
@@ -205,29 +214,89 @@ class _LangFuseSink:
             return
         try:
             if event["event"] == "trace_start":
-                self._traces[event["trace_id"]] = self.client.trace(
-                    id=event["trace_id"],
+                trace_id = self._langfuse_trace_id(event["trace_id"])
+                root = self.client.start_observation(
+                    trace_context={"trace_id": trace_id},
                     name=event["name"],
+                    as_type="chain",
+                    input=event.get("metadata") or {},
                     metadata=event.get("metadata") or {},
-                    session_id=event.get("session_id"),
-                    user_id=event.get("user_id"),
-                    tags=event.get("tags") or [],
                 )
-            elif event["event"] == "span_start":
-                trace = self._traces.get(event["trace_id"])
-                if trace is not None:
-                    self._spans[event["span_id"]] = trace.span(
-                        name=event["name"],
-                        metadata=event.get("metadata") or {},
+                if hasattr(root, "update_trace"):
+                    root.update_trace(
+                        session_id=event.get("session_id"),
+                        user_id=event.get("user_id"),
+                        tags=event.get("tags") or [],
                     )
+                self._traces[event["trace_id"]] = root
+            elif event["event"] == "span_start":
+                trace_id = self._langfuse_trace_id(event["trace_id"])
+                parent = self._spans.get(event.get("parent_span_id")) or self._traces.get(event["trace_id"])
+                parent_span_id = getattr(parent, "id", None)
+                span = self.client.start_observation(
+                    trace_context={"trace_id": trace_id, "parent_span_id": parent_span_id}
+                    if parent_span_id
+                    else {"trace_id": trace_id},
+                    name=event["name"],
+                    as_type=self._observation_type(event["name"]),
+                    metadata=event.get("metadata") or {},
+                )
+                self._spans[event["span_id"]] = span
             elif event["event"] == "span_end":
                 span = self._spans.get(event["span_id"])
                 if span is not None:
-                    span.end(output=event.get("output"), status_message=json.dumps(event.get("error")) if event.get("error") else None)
-            elif event["event"] == "trace_end" and hasattr(self.client, "flush"):
-                self.client.flush()
-        except Exception:
+                    span.update(
+                        output=event.get("output"),
+                        level="ERROR" if event.get("error") else "DEFAULT",
+                        status_message=json.dumps(event.get("error")) if event.get("error") else None,
+                    )
+                    span.end()
+            elif event["event"] == "trace_end":
+                trace = self._traces.get(event["trace_id"])
+                if trace is not None:
+                    trace.update(
+                        output=event.get("output"),
+                        level="ERROR" if event.get("error") else "DEFAULT",
+                        status_message=json.dumps(event.get("error")) if event.get("error") else None,
+                    )
+                    trace.end()
+                if hasattr(self.client, "flush"):
+                    self.client.flush()
+        except Exception as exc:
+            if self.required:
+                raise RuntimeError(f"Could not forward trace event to Langfuse: {type(exc).__name__}: {exc}") from exc
             return
+
+    def _langfuse_trace_id(self, local_trace_id: str) -> str:
+        trace_id = self._trace_ids.get(local_trace_id)
+        if trace_id is None:
+            trace_id = self.client.create_trace_id(seed=local_trace_id)
+            self._trace_ids[local_trace_id] = trace_id
+        return trace_id
+
+    def url_for_trace(self, local_trace_id: str) -> str | None:
+        if self.client is None or not hasattr(self.client, "get_trace_url"):
+            return None
+        trace_id = self._trace_ids.get(local_trace_id)
+        if trace_id is None:
+            return None
+        try:
+            return self.client.get_trace_url(trace_id=trace_id)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _observation_type(name: str) -> str:
+        lowered = name.lower()
+        if lowered.startswith("tool.") or "tool" in lowered:
+            return "tool"
+        if "agent" in lowered:
+            return "agent"
+        if "retrieval" in lowered or "rag" in lowered:
+            return "retriever"
+        if "guardrail" in lowered:
+            return "guardrail"
+        return "span"
 
 
 def read_trace(path: str | Path) -> list[dict[str, Any]]:
