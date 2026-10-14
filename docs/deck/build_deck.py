@@ -211,7 +211,7 @@ s = new_slide("M7 and M8: trace every step, then prove it on 20 adversarial case
     "Traces are always written locally and forwarded to LangFuse when keys exist; we confirmed through the LangFuse API that spans from a real run arrive. The golden set is deliberately adversarial: five injection variants, cross-customer orders, safety, repeat contact. Both stored and live-LLM runs pass 20 of 20.")
 column(s, 0.6, W, "M7", "Tracing + reliability", [
     ("What", ["- See every agent, tool and retrieval step; survive provider failures"], 0.5),
-    ("How", ["- LangFuse spans plus local JSONL traces", "- Retry with backoff, model fallback, circuit breaker; cached embeddings"], 0.85),
+    ("How", ["- LangFuse spans plus local JSONL traces", "- LLM: schema re-ask, 429 backoff, 60s timeout. Tools: retry, circuit breaker, human-queue fallback"], 0.85),
     ("Proof", ["- Verified in LangFuse: Memory, Policy RAG, Order-Actions, Escalation spans", "- 3 reliability tests"], 0.85)])
 column(s, 6.75, W, "M8", "Golden eval + FastAPI", [
     ("What", ["- 20-case golden set over 5 customers; /chat and /health API"], 0.5),
