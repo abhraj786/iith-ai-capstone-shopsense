@@ -28,33 +28,81 @@ class RetryPolicy:
 
 @dataclass
 class CircuitBreaker:
+    """closed -> open after N failures -> half_open after the cooldown -> closed on one success.
+
+    In half_open exactly one trial call is let through; a failure re-opens immediately.
+    """
+
     failure_threshold: int = 2
     cooldown_s: float = 30.0
     failures: dict[str, int] = field(default_factory=dict)
     opened_at: dict[str, float] = field(default_factory=dict)
+    half_open: set[str] = field(default_factory=set)
 
     def allow(self, tool_name: str) -> bool:
         opened = self.opened_at.get(tool_name)
         if opened is None:
             return True
+        if tool_name in self.half_open:
+            return False  # the single trial is already in flight
         if time.time() - opened >= self.cooldown_s:
-            self.failures[tool_name] = 0
-            self.opened_at.pop(tool_name, None)
+            self.half_open.add(tool_name)
             return True
         return False
 
     def record_success(self, tool_name: str) -> None:
         self.failures[tool_name] = 0
         self.opened_at.pop(tool_name, None)
+        self.half_open.discard(tool_name)
 
     def record_failure(self, tool_name: str) -> None:
         count = self.failures.get(tool_name, 0) + 1
         self.failures[tool_name] = count
-        if count >= self.failure_threshold:
+        if tool_name in self.half_open or count >= self.failure_threshold:
+            self.half_open.discard(tool_name)
             self.opened_at[tool_name] = time.time()
 
     def state(self, tool_name: str) -> str:
-        return "open" if not self.allow(tool_name) else "closed"
+        if tool_name in self.half_open:
+            return "half_open"
+        opened = self.opened_at.get(tool_name)
+        if opened is None:
+            return "closed"
+        return "half_open" if time.time() - opened >= self.cooldown_s else "open"
+
+
+class FailoverToolGateway:
+    """Use the primary gateway (MCP); if it cannot be reached at all, use the in-process one.
+
+    Only a raised exception fails over (server did not start, pipe broke), never a tool's own
+    `ok: False` answer, so a refused or failed tool call is never silently re-run elsewhere.
+    The failover is visible: `active` flips to "python" and the result carries `failover`.
+    """
+
+    def __init__(self, primary: Any, fallback: Any):
+        self.primary = primary
+        self.fallback = fallback
+        self.active = "mcp"
+        self.failovers = 0
+
+    def __getattr__(self, name: str) -> Callable:
+        if name.startswith("_") or name == "transport":
+            raise AttributeError(name)
+
+        def call(*args, **kwargs):
+            try:
+                result = getattr(self.primary, name)(*args, **kwargs)
+                self.active = "mcp"
+                return result
+            except Exception as exc:
+                self.active = "python"
+                self.failovers += 1
+                result = dict(getattr(self.fallback, name)(*args, **kwargs))
+                result["failover"] = {"from": "mcp", "to": "python", "reason": f"{type(exc).__name__}: {str(exc)[:120]}"}
+                result.setdefault("transport", "python")
+                return result
+
+        return call
 
 
 class ReliableToolGateway:

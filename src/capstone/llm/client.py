@@ -30,6 +30,7 @@ class LLMClient:
             import litellm  # imported lazily so offline tests don't need provider setup
             completion = litellm.completion
         self._completion = completion
+        self.usage = {"calls": 0, "input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0}
 
     def structured(self, system: str, user: str, schema: type[T]) -> T:
         """Ask the model for JSON matching `schema`; on invalid output retry with the error."""
@@ -38,6 +39,7 @@ class LLMClient:
         for _ in range(self.settings.llm_max_retries + 1):
             try:
                 response = self._call(messages, schema)
+                self._record_usage(response)
                 content = response.choices[0].message.content
                 return schema.model_validate_json(content)
             except (ValidationError, json.JSONDecodeError, TypeError) as e:
@@ -65,3 +67,21 @@ class LLMClient:
                     raise
                 time.sleep(delay)
                 delay *= 2
+
+    def _record_usage(self, response) -> None:
+        """Add this call's tokens (and a best-effort price) to the running totals."""
+        usage = getattr(response, "usage", None)
+        self.usage["calls"] += 1
+        if usage is None:
+            return
+        self.usage["input_tokens"] += int(getattr(usage, "prompt_tokens", 0) or 0)
+        self.usage["output_tokens"] += int(getattr(usage, "completion_tokens", 0) or 0)
+        try:
+            import litellm
+            self.usage["cost_usd"] += float(litellm.completion_cost(completion_response=response) or 0.0)
+        except Exception:  # unknown model price: tokens still count
+            pass
+
+    def usage_since(self, before: dict) -> dict:
+        return {k: round(self.usage[k] - before[k], 8) if k == "cost_usd" else self.usage[k] - before[k]
+                for k in self.usage}

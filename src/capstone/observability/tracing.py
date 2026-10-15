@@ -14,6 +14,9 @@ from uuid import uuid4
 from capstone.settings import PROJECT_ROOT, get_settings
 
 
+LLM_STEPS = {"Triage Agent", "Supervisor Agent"}  # the only steps that call a model
+
+
 class TraceRecorder:
     """Record spans locally and forward to LangFuse when configured.
 
@@ -248,6 +251,14 @@ class _LangFuseSink:
             elif event["event"] == "span_end":
                 span = self._spans.get(event["span_id"])
                 if span is not None:
+                    usage = (event.get("output") or {}).get("llm_usage")
+                    if usage and usage.get("calls"):  # LLM step: let Langfuse show tokens and cost
+                        span.update(
+                            model=get_settings().llm_model,
+                            usage_details={"input": usage["input_tokens"], "output": usage["output_tokens"],
+                                           "total": usage["input_tokens"] + usage["output_tokens"]},
+                            cost_details={"total": usage["cost_usd"]} if usage.get("cost_usd") else None,
+                        )
                     span.update(
                         output=event.get("output"),
                         level="ERROR" if event.get("error") else "DEFAULT",
@@ -263,8 +274,8 @@ class _LangFuseSink:
                         status_message=json.dumps(event.get("error")) if event.get("error") else None,
                     )
                     trace.end()
-                if hasattr(self.client, "flush"):
-                    self.client.flush()
+                if get_settings().langfuse_flush_each_trace and hasattr(self.client, "flush"):
+                    self.client.flush()  # off by default: the SDK batches and flushes at exit
         except Exception as exc:
             if self.required:
                 raise RuntimeError(f"Could not forward trace event to Langfuse: {type(exc).__name__}: {exc}") from exc
@@ -304,6 +315,8 @@ class _LangFuseSink:
     @staticmethod
     def _observation_type(name: str) -> str:
         lowered = name.lower()
+        if name in LLM_STEPS:
+            return "generation"
         if lowered.startswith("tool.") or "tool" in lowered:
             return "tool"
         if "agent" in lowered:
@@ -334,17 +347,26 @@ def summarize_trace(path: str | Path) -> list[dict[str, Any]]:
             "avg_ms": 0.0,
             "errors": 0,
             "fallbacks": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0,
         })
         row["calls"] += 1
         row["total_ms"] += float(event.get("duration_ms") or 0)
         row["errors"] += 1 if event.get("error") else 0
         output = event.get("output") or {}
+        llm_usage = output.get("llm_usage") if isinstance(output, dict) else None
+        if isinstance(llm_usage, dict):
+            row["input_tokens"] += int(llm_usage.get("input_tokens") or 0)
+            row["output_tokens"] += int(llm_usage.get("output_tokens") or 0)
+            row["cost_usd"] += float(llm_usage.get("cost_usd") or 0)
         reliability = output.get("reliability") if isinstance(output, dict) else None
         if isinstance(reliability, dict) and reliability.get("fallback") not in (None, "none"):
             row["fallbacks"] += 1
     for row in rows.values():
         row["total_ms"] = round(row["total_ms"], 3)
         row["avg_ms"] = round(row["total_ms"] / row["calls"], 3) if row["calls"] else 0.0
+        row["cost_usd"] = round(row["cost_usd"], 6)
     return sorted(rows.values(), key=lambda item: item["total_ms"], reverse=True)
 
 

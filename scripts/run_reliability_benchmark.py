@@ -73,6 +73,18 @@ def run_hardened(config: FaultConfig, n: int) -> dict:
     }
 
 
+def run_breaker_demo(calls: int = 10, threshold: int = 3) -> dict:
+    """A dependency that is completely down: the breaker should stop calling it after `threshold` failures."""
+    down = FlakyTrackingGateway(FaultConfig(seed=7, fail_rate=1.0, timeout_rate=0.0, malformed_rate=0.0))
+    gateway = ReliableToolGateway(
+        down, retry_policy=RetryPolicy(attempts=1, backoff_s=0, max_backoff_s=0),
+        circuit_breaker=CircuitBreaker(failure_threshold=threshold, cooldown_s=3600),
+    )
+    short_circuited = sum(
+        gateway.track_shipment("KW-C-00285", "KW-O-000950")["error"]["error"] == "circuit_open" for _ in range(calls))
+    return {"calls": calls, "hit_the_dependency": down.calls, "short_circuited": short_circuited}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--n", type=int, default=200)
@@ -92,6 +104,7 @@ def main() -> None:
         "hardened,"
         f"{hardened['ok']},{hardened['fallback']},{hardened['malformed']},{hardened['handled_rate']:.3f}"
     )
+    print("breaker_demo,", run_breaker_demo())
 
 
 if __name__ == "__main__":

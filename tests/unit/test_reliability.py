@@ -142,3 +142,76 @@ def test_team_falls_back_to_human_queue_and_writes_trace(tmp_path):
     assert by_role["tool.track_shipment"]["fallbacks"] == 1
     assert by_role["Order-Actions Agent"]["calls"] == 1
 
+
+
+def test_circuit_breaker_half_open_lets_one_trial_and_reopens_on_failure():
+    cb = CircuitBreaker(failure_threshold=2, cooldown_s=0.05)
+    cb.record_failure("t")
+    cb.record_failure("t")
+    assert cb.state("t") == "open" and not cb.allow("t")
+    import time
+    time.sleep(0.06)
+    assert cb.state("t") == "half_open"
+    assert cb.allow("t") is True      # the single trial
+    assert cb.allow("t") is False     # no second call while the trial is in flight
+    cb.record_failure("t")            # trial failed: straight back to open
+    assert cb.state("t") == "open" and not cb.allow("t")
+
+
+def test_circuit_breaker_closes_after_one_successful_trial():
+    cb = CircuitBreaker(failure_threshold=1, cooldown_s=0.0)
+    cb.record_failure("t")
+    assert cb.allow("t") is True
+    cb.record_success("t")
+    assert cb.state("t") == "closed" and cb.allow("t") is True
+
+
+def test_failover_gateway_uses_python_only_when_mcp_cannot_be_reached():
+    from capstone.reliability.tools import FailoverToolGateway
+
+    class Dead:
+        def track_shipment(self, c, o):
+            raise ConnectionError("mcp server did not start")
+
+    class Refuses:
+        def track_shipment(self, c, o):
+            return {"ok": False, "error": {"error": "order_not_found"}, "transport": "mcp"}
+
+    local = FlakyGateway(failures_before_success=0)
+    down = FailoverToolGateway(Dead(), local)
+    result = down.track_shipment("KW-C-1", "KW-O-1")
+    assert result["ok"] and result["failover"]["to"] == "python" and down.active == "python"
+
+    refused = FailoverToolGateway(Refuses(), local)
+    result = refused.track_shipment("KW-C-1", "KW-O-1")
+    assert result["ok"] is False and "failover" not in result and refused.active == "mcp"  # a refusal is not re-run
+
+
+def test_trace_summary_adds_token_columns_from_llm_usage(tmp_path):
+    recorder = TraceRecorder(tmp_path)
+    run = recorder.start_trace("t")
+    with run.span("Triage Agent") as span:
+        span.set_output({"llm_usage": {"calls": 1, "input_tokens": 120, "output_tokens": 30, "cost_usd": 0.0004}})
+    path = run.end()["path"]
+    row = summarize_trace(path)[0]
+    assert (row["input_tokens"], row["output_tokens"], row["cost_usd"]) == (120, 30, 0.0004)
+
+
+def test_seeded_benchmark_matches_the_lab_numbers():
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "scripts" / "run_reliability_benchmark.py"
+    spec = importlib.util.spec_from_file_location("bench", path)
+    bench = importlib.util.module_from_spec(spec)
+    import sys
+    sys.modules["bench"] = bench
+    spec.loader.exec_module(bench)
+
+    config = bench.FaultConfig(seed=42)
+    baseline = bench.run_baseline(config, 200)
+    hardened = bench.run_hardened(config, 200)
+    assert baseline["ok"] == 114 and baseline["success_rate"] == 0.57
+    assert hardened["ok"] == 179 and hardened["fallback"] == 21 and hardened["handled_rate"] == 1.0
+    breaker = bench.run_breaker_demo()
+    assert breaker == {"calls": 10, "hit_the_dependency": 3, "short_circuited": 7}

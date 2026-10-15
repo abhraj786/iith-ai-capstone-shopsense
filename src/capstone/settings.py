@@ -34,7 +34,8 @@ class Settings(BaseSettings):
     langfuse_public_key: str | None = None
     langfuse_secret_key: str | None = None
     langfuse_host: str | None = None
-    tool_transport: str = "python"  # "mcp": every order tool call goes through the MCP server
+    langfuse_flush_each_trace: bool = False  # True blocks every ticket on a network flush; default batches in the background
+    tool_transport: str = "mcp"  # "mcp": order tools go through the MCP server (python fallback); "python": in-process only
     tool_retry_attempts: int = 2
     tool_circuit_failure_threshold: int = 2
     tool_circuit_cooldown_s: float = 30.0

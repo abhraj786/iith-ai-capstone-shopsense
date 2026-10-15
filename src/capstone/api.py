@@ -13,13 +13,16 @@ from capstone.agents.action_agent import plan_action
 from capstone.agents.intake_agent import apply_contact_count
 from capstone.agents.policy_agent import PolicyAgent
 from capstone.guardrails import apply_guardrails, safe_policy_answer
+from capstone.llm.client import LLMError
 from capstone.memory.store import get_memory_store
 from capstone.rag.hybrid import HybridPolicyRetriever
 from capstone.rag.policy_index import PolicyIndex
+from capstone.schemas.actions import ActionProposal, RecommendedAction
 from capstone.schemas.intake import SupportTicket
 from capstone.team.multi_agent import MultiAgentTeam
 from capstone.settings import PROJECT_ROOT, get_settings
 from capstone.tools.lookups import order_category
+from capstone.tools import actions
 from capstone.tools.repository import get_repository
 
 
@@ -57,13 +60,16 @@ def chat(request: ChatRequest) -> ChatResponse:
     if request.support_ticket is not None:
         return _chat_from_ticket(request)
 
-    result = MultiAgentTeam().resolve(
-        raw_text=request.raw_text,
-        channel=request.channel,
-        customer_ref=request.customer_ref,
-        today=request.today,
-        execute_actions=request.execute_actions,
-    )
+    try:
+        result = MultiAgentTeam().resolve(
+            raw_text=request.raw_text,
+            channel=request.channel,
+            customer_ref=request.customer_ref,
+            today=request.today,
+            execute_actions=request.execute_actions,
+        )
+    except LLMError as exc:  # model down or unusable: hand the case to a person, never guess
+        return _llm_unavailable(request, exc)
     guardrails = result.guardrails
     policy_answer = safe_policy_answer(result.policy_answer, _guardrail_model(guardrails))
     return ChatResponse(
@@ -76,6 +82,32 @@ def chat(request: ChatRequest) -> ChatResponse:
         memory_context=result.memory_context,
         escalation_review=result.escalation_review,
         trace=result.trace,
+    )
+
+
+def _llm_unavailable(request: ChatRequest, exc: Exception) -> ChatResponse:
+    """Safe degraded answer when the intake model cannot be reached: queue for a human."""
+    note = "Assistant could not read this message (language model unavailable); please handle manually."
+    try:
+        queued = actions.flag_for_human(get_repository(), request.customer_ref, None, "human_requested", note)
+        error = None
+    except Exception as queue_exc:  # even the queue failed: say so, still do not crash
+        queued, error = None, {"error": "queue_unavailable", "message": str(queue_exc)[:200]}
+    proposal = ActionProposal(
+        recommended_action=RecommendedAction.human_review, requires_human=True,
+        tool_name="flag_for_human",
+        tool_args={"order_ref": None, "trigger": "human_requested", "note": note},
+        explanation="The language model is unavailable, so a human will pick this up.",
+        executed=queued is not None, tool_result=queued, tool_error=error)
+    return ChatResponse(
+        channel=request.channel, customer_ref=request.customer_ref,
+        ticket={"issue_type": "unknown", "summary": "Not parsed: language model unavailable."},
+        policy_answer={"skipped": True},
+        action_proposal=proposal.model_dump(mode="json"),
+        guardrails={"findings": [], "degraded": "llm_unavailable"},
+        escalation_review={"decision": "human_review", "requires_human": True,
+                           "reason": "llm_unavailable"},
+        trace={"degraded": "llm_unavailable", "error": str(exc)[:200]},
     )
 
 

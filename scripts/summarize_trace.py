@@ -18,9 +18,9 @@ def main() -> None:
         print("No span_end events found.")
         return
 
-    print("role,calls,total_ms,avg_ms,errors,fallbacks")
+    print("role,calls,total_ms,avg_ms,errors,fallbacks,input_tokens,output_tokens,cost_usd")
     for row in rows:
-        print(",".join(str(row[key]) for key in ["role", "calls", "total_ms", "avg_ms", "errors", "fallbacks"]))
+        print(",".join(str(row[key]) for key in ["role", "calls", "total_ms", "avg_ms", "errors", "fallbacks", "input_tokens", "output_tokens", "cost_usd"]))
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ from capstone.memory.store import CustomerMemoryStore, get_memory_store
 from capstone.observability.tracing import TraceRecorder, get_trace_recorder
 from capstone.rag.hybrid import HybridPolicyRetriever
 from capstone.rag.policy_index import PolicyIndex
-from capstone.reliability.tools import ReliableToolGateway
+from capstone.reliability.tools import FailoverToolGateway, ReliableToolGateway
 from capstone.schemas.actions import ActionProposal, RecommendedAction
 from capstone.schemas.intake import EscalationSignal, Sentiment, SupportTicket, Urgency
 from capstone.settings import get_settings
@@ -97,7 +97,8 @@ class MultiAgentTeam:
         if self.policy_agent is None:
             self.policy_agent = PolicyAgent(HybridPolicyRetriever(self.policy_index))
         if self.tool_gateway is None:
-            self.tool_gateway = MCPShopSenseToolGateway() if self.use_mcp_tools else ShopSenseToolGateway(self.repo)
+            local = ShopSenseToolGateway(self.repo)
+            self.tool_gateway = FailoverToolGateway(MCPShopSenseToolGateway(), local) if self.use_mcp_tools else local
         if self.reliable_tools and not isinstance(self.tool_gateway, ReliableToolGateway):
             self.tool_gateway = ReliableToolGateway(self.tool_gateway)
         if self.tracer is None:
@@ -127,7 +128,8 @@ class MultiAgentTeam:
 
         board: dict[str, Any] = {}
 
-        with trace.span("Triage Agent", metadata={"channel": channel}):
+        usage_before = dict(self.client.usage)
+        with trace.span("Triage Agent", metadata={"channel": channel}) as span:
             ticket = parse_ticket(
                 self.client,
                 raw_text,
@@ -137,6 +139,7 @@ class MultiAgentTeam:
                 prior_contacts=lambda t: self.memory_store.prior_contacts(
                     customer_ref, t.order_ref, t.issue_type.value, today, channel),
             )
+            span.set_output({"llm_usage": self.client.usage_since(usage_before)})
         commit(board, "Triage Agent", ticket=ticket)
         steps.append(AgentStep(
             agent="Triage Agent",
@@ -144,9 +147,10 @@ class MultiAgentTeam:
             output=ticket.model_dump(mode="json"),
         ))
 
+        usage_before = dict(self.client.usage)
         with trace.span("Supervisor Agent") as span:
             route = decide_route(self.client, board["ticket"])
-            span.set_output(route)
+            span.set_output({**route, "llm_usage": self.client.usage_since(usage_before)})
         commit(board, "Supervisor Agent", route=route)
         steps.append(AgentStep(
             agent="Supervisor Agent",
@@ -277,6 +281,8 @@ class MultiAgentTeam:
     @property
     def tool_transport(self) -> str:
         gateway = self.tool_gateway.gateway if isinstance(self.tool_gateway, ReliableToolGateway) else self.tool_gateway
+        if isinstance(gateway, FailoverToolGateway):
+            return gateway.active
         return "mcp" if isinstance(gateway, MCPShopSenseToolGateway) else "python"
 
     def _apply_tool_result(
