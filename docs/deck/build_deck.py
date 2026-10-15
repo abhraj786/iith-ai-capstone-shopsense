@@ -375,13 +375,13 @@ label(s, 6.95, 1.88, 5.7, 0.9, [("Real run, with a real process restart", {"bold
 box(s, 6.85, 2.9, 5.9, 0.8, fill=LIGHT, line=GREY)
 label(s, 6.95, 2.93, 5.7, 0.75, [("What approval does here", {"bold": True, "color": NAVY}),
     "The case is filed to the human desk (flag_for_human). It does not pay the Rs 12,999. The approver and time go into the audit log."], size=10, space=2)
-label(s, 6.85, 3.78, 5.9, 0.3, "CHECKED AGAINST THE LAB'S MILESTONE LIST", size=10, bold=True, color=TEAL)
+label(s, 6.85, 3.78, 5.9, 0.3, "WHAT THE WORKFLOW GUARANTEES", size=10, bold=True, color=TEAL)
 table(s, 6.85, 4.08, 5.9, [
-    ["Lab item", "Here"],
-    ["Typed state, audit field with a reducer", "audit_log (append)"],
-    ["Routing as pure functions", "tested without a graph"],
-    ["Durable checkpointer, restart", "SqliteSaver, tested"],
-    ["Irreversible step after the pause", "own node, runs once"],
+    ["Guarantee", "How"],
+    ["Typed state with an audit trail", "audit_log (append)"],
+    ["Routing is plain, testable code", "tested without a graph"],
+    ["State survives a restart", "SqliteSaver, tested"],
+    ["Irreversible step runs once, after approval", "own node, runs once"],
 ], [3.5, 2.4], size=10.5, row_h=0.28)
 runbar(s, 6.45, ["pytest tests/unit/test_workflow.py"])
 
@@ -417,14 +417,14 @@ label(s, 7.6, 1.5, 5.15, 0.3, "SAME TICKET AS M1-M5, RUN AS CHAT AND AS EMAIL", 
 box(s, 7.6, 1.85, 5.15, 1.45, fill=RGBColor(0xE6, 0xF4, 0xEA), line=GREEN)
 label(s, 7.7, 1.88, 4.95, 1.4, [("Real run, MCP on", {"bold": True, "color": GREEN}),
     "Guardrails fired: prompt_injection_blocked, refund_above_auto_cap_blocked. Reviewer: human_review. flag_for_human ran over MCP: queue KW-HQ-00002. The email run got the same id (duplicate = true). The Rs 12,999 refund was not issued."], size=10, space=2)
-label(s, 7.6, 3.4, 5.15, 0.3, "CHECKED AGAINST THE LAB", size=10, bold=True, color=TEAL)
+label(s, 7.6, 3.4, 5.15, 0.3, "WHAT THE TEAM GUARANTEES", size=10, bold=True, color=TEAL)
 table(s, 7.6, 3.7, 5.15, [
-    ["Lab item", "Here"],
-    ["Write permission per agent, enforced", "PermissionError, tested"],
-    ["Critic independent, before any write", "yes, tested"],
-    ["MCP tools + resource, no delete tool", "10 tools + 1 resource"],
+    ["Guarantee", "How"],
+    ["Each agent writes only its own keys", "PermissionError, tested"],
+    ["Independent review before any write", "reviewer only tightens, tested"],
+    ["MCP: no delete or free-write tool", "10 tools + 1 rules resource"],
     ["Wrong customer refused over MCP", "tested"],
-    ["Supervisor, LLM routing, revision loop", "not built: fixed line"],
+    ["Routing between agents", "fixed order, no LLM router"],
 ], [3.0, 2.15], size=10.5, row_h=0.3)
 label(s, 7.6, 5.6, 5.15, 0.6, "Only Triage calls an LLM; the other four are deterministic code.", size=11, bold=True, color=NAVY)
 runbar(s, 6.45, ["pytest tests/unit/test_multi_agent_team.py tests/unit/test_mcp_tools.py"])
