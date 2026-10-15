@@ -1,5 +1,7 @@
 # M6: multi-agent team with an MCP tool server
 
+![M6 sequence](m6_multi_agent_sequence.png)
+
 Sample (same as M1-M5): hostile ticket for order KW-O-000000, customer KW-C-00317, claim Rs 12,999, 2026-07-16.
 
 ```mermaid
