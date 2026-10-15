@@ -130,6 +130,28 @@ def runbar(slide, y, cmds):
     label(slide, 0.8, y + 0.06, 11.7, 0.5, [("Run:  " + "     |     ".join(cmds), {"size": 12, "color": WHITE})])
 
 
+def pill(slide, x, y, w, txt, fill, fg=WHITE):
+    b = box(slide, x, y, w, 0.26, fill=fill)
+    b.adjustments[0] = 0.5
+    label(slide, x, y - 0.02, w, 0.26, txt, size=9, bold=True, color=fg, align=PP_ALIGN.CENTER, space=0)
+
+
+def stat(slide, x, y, w, value, caption, accent=TEAL):
+    box(slide, x, y, w, 1.05)
+    box(slide, x, y, w, 0.08, fill=accent, shape=MSO_SHAPE.RECTANGLE)
+    label(slide, x, y + 0.14, w, 0.55, value, size=28, bold=True, color=NAVY, align=PP_ALIGN.CENTER, space=0)
+    label(slide, x + 0.05, y + 0.68, w - 0.1, 0.35, caption, size=10.5, color=GREY, align=PP_ALIGN.CENTER, space=0)
+
+
+def numbered(slide, x, y, w, h, num, problem, fix):
+    box(slide, x, y, w, h)
+    label(slide, x + 0.12, y + 0.08, 0.9, 0.5, num, size=24, bold=True, color=TEAL, space=0)
+    pill(slide, x + 0.15, y + 0.68, 0.95, "PROBLEM", RED)
+    label(slide, x + 0.1, y + 0.98, w - 0.2, 0.6, problem, size=11.5, space=0)
+    pill(slide, x + 0.15, y + 1.62, 0.95, "FIX", GREEN)
+    label(slide, x + 0.1, y + 1.92, w - 0.2, 0.6, fix, size=11.5, bold=True, color=NAVY, space=0)
+
+
 # 1 Title
 s = prs.slides.add_slide(BLANK)
 gradient_bg(s, RGBColor(0x0B, 0x5C, 0xD5), NAVY, angle=45)
@@ -146,7 +168,7 @@ s.notes_slide.notes_text_frame.text = "Open with the promise: routine tickets re
 
 # 3 Architecture
 s = new_slide("One pipeline: parse, look up, ground, plan, then gate", "End-to-end architecture",
-              "Walk left to right in one line. The chips under it wrap everything: LangGraph pause and resume, the supervised team, tracing, and the API with evaluation. The red gate is the deterministic guardrail layer. 98 unit tests in total, 11 of them for M8.")
+              "Walk left to right in one line. The chevron strip under it is the build order, M1 to M8; the last four wrap everything: LangGraph pause and resume, the supervised team, tracing, and the API with evaluation. The red gate is the deterministic guardrail layer. 98 unit tests in total, 11 of them for M8.")
 y, bw, step = 1.75, 1.5, 1.8
 steps = [("Customer message", "chat / email text", GREY, WHITE), ("M1 Intake", "LLM to SupportTicket", NAVY, WHITE),
          ("M3 Memory", "history, repeat count", NAVY, WHITE), ("M4 Policy RAG", "Gemini embeddings + BM25", NAVY, WHITE),
@@ -157,21 +179,28 @@ for i, (t, sub, fill, fg) in enumerate(steps):
 node(s, 11.3, 1.45, 1.5, 0.95, "Auto-execute", "safe and grounded", fill=GREEN)
 node(s, 11.3, 2.6, 1.5, 0.95, "Human review", "with reason codes", fill=AMBER, fg=INK)
 arrow(s, 0.5 + 5 * step + bw, y + 0.45, 11.3, 1.95); arrow(s, 0.5 + 5 * step + bw, y + 0.8, 11.3, 3.1)
-label(s, 0.5, 3.45, 12.3, 0.3, "WRAPPED AROUND THE WHOLE PIPELINE", size=10, bold=True, color=TEAL)
-chips = [("M5 LangGraph", "human interrupt, resume"), ("M6 supervised team", "route, review, revise"), ("M7 tracing + fallback", "Langfuse, retries, breaker"), ("M8 /chat + golden eval", "guardrails, judge, Docker")]
-for i, (t, sub) in enumerate(chips):
-    cx0 = 0.5 + i * 3.125
-    box(s, cx0, 3.78, 2.925, 0.6, fill=LIGHT, line=GREY)
-    label(s, cx0 + 0.1, 3.8, 2.75, 0.56, [(t, {"bold": True, "color": NAVY, "size": 12}), (sub, {"size": 10, "color": GREY})], space=0)
-label(s, 0.5, 4.6, 12.3, 0.3, "THREE TICKETS WE FOLLOW, SAME CODE FOR ALL  (bar colour = where the ticket ends up)", size=10, bold=True, color=TEAL)
-table(s, 0.6, 4.95, 12.2, [
+label(s, 0.5, 3.45, 12.3, 0.3, "EIGHT MILESTONES, BUILT IN ORDER  (M1 to M4 are the pipeline above; M5 to M8 wrap around it)", size=10, bold=True, color=TEAL)
+miles = [("M1", "Intake"), ("M2", "Actions"), ("M3", "Memory"), ("M4", "Policy RAG"), ("M5", "Workflow"), ("M6", "Team"), ("M7", "Reliability"), ("M8", "API + eval")]
+subs = ["parse the ticket", "tools via gateway", "history, repeats", "grounded policy", "pause and resume", "route, review", "trace, retry, breaker", "guardrails, judge"]
+for i, ((m, t), sub) in enumerate(zip(miles, subs)):
+    cx0 = 0.5 + i * 1.545
+    ch = s.shapes.add_shape(MSO_SHAPE.CHEVRON if i else MSO_SHAPE.PENTAGON, Inches(cx0), Inches(3.78), Inches(1.6), Inches(0.5))
+    ch.fill.solid(); ch.fill.fore_color.rgb = NAVY if i < 4 else TEAL
+    ch.line.fill.background(); ch.shadow.inherit = False
+    ch.adjustments[0] = 0.3
+    ch.text_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
+    ch.text_frame.margin_left = ch.text_frame.margin_right = 0
+    text(ch.text_frame, f"{m}  {t}", size=11, bold=True, color=WHITE, align=PP_ALIGN.CENTER, space=0)
+    label(s, cx0 + 0.1, 4.3, 1.45, 0.25, sub, size=9, color=GREY, align=PP_ALIGN.CENTER, space=0)
+label(s, 0.5, 4.65, 12.3, 0.3, "THREE TICKETS WE FOLLOW, SAME CODE FOR ALL  (bar colour = where the ticket ends up)", size=10, bold=True, color=TEAL)
+table(s, 0.6, 4.98, 12.2, [
     ["Ticket", "M1 reads", "M2 plans, M4 grounds", "M5 workflow", "M6 route"],
     ["A  Hostile, Rs 12,999 (KW-O-000000)", "angry, injection, above cap", "human: refund_above_auto_cap", "pauses for approval", "full, then human"],
     ["B  Plain tracking (KW-O-000010)", "calm, track_order, no signals", "track_shipment, no human", "auto-resolves", "fast_track, no policy"],
     ["C  Court threat (KW-O-000950)", "angry, legal_or_regulatory", "human: legal_or_regulatory", "pauses for approval", "escalate_now, human"],
 ], [3.0, 2.8, 2.9, 1.8, 1.7], size=10.5, row_h=0.36)
 for i, c in enumerate([AMBER, GREEN, AMBER]):
-    box(s, 0.5, 4.95 + 0.36 * (i + 1) + 0.02, 0.08, 0.32, fill=c, shape=MSO_SHAPE.RECTANGLE)
+    box(s, 0.5, 4.98 + 0.36 * (i + 1) + 0.02, 0.08, 0.32, fill=c, shape=MSO_SHAPE.RECTANGLE)
 
 # M1 sequence
 s = new_slide("M1: what is passed at each step", "Module 1  |  intake sequence with real messages",
@@ -527,23 +556,22 @@ runbar(s, 6.45, ["pytest tests/unit/test_reliability.py", "python scripts/run_re
 # 10 Results, limits, demo
 s = new_slide("M8 and results: what we proved, and how to run it", "Module 8 and evaluation  |  run it yourself",
     "Limits to mention only if asked (they are in docs/architecture.md): intent accuracy of 0.72 is below a 0.8 target on noisy Twitter-style labels; it does not affect safety because the cap and escalation rules are deterministic. The middle column is the continuous-improvement story: each row is something the first real run exposed. M8 facts: 20 ticket cases pass 20 of 20 stored and live. 20 component items (5 each: tool use, retrieval, planning, final answer) score 1.0 by rules. An in-repo LLM judge (not Ragas or DeepEval) gave faithfulness 1.0 and context relevance 0.64, and disagreed with the keyword check on two retrieval items, product safety and double charge: the right words were there but the passages were about something else. That is a real retrieval weakness. One golden label was my own mistake and was corrected. Retrieved policy text is now scanned for injected instructions. Docker was written but not built here (no Docker on this machine); the Postman collection ran on localhost, not through ngrok. Demo order: the tests for confidence, then the golden eval. If asked for the API, start uvicorn capstone.api:app and run the Postman collection (tickets A, B, C; empty text gives 422). Keep the .env file beside you; it is not in git. Backup: demo_milestones.py --offline runs with no network. Close on the design principle: let the model read, let code decide.")
-table(s, 0.6, 1.5, 4.6, [
-    ["Check", "Result"],
-    ["Unit tests (fresh clone)", "98 passed"],
-    ["M8 golden tickets, stored and live", "20 / 20"],
-    ["M8 components (4 x 5 items)", "1.0"],
-    ["Answer faithfulness (judge)", "1.0"],
-    ["M4 recall@3, hybrid", "1.000"],
-], [3.0, 1.6], size=11, row_h=0.36)
-label(s, 5.45, 1.45, 3.7, 0.3, "FOUND BY RUNNING IT, THEN FIXED", size=10, bold=True, color=TEAL)
-label(s, 5.45, 1.75, 3.7, 1.6, ["- Hinglish injection missed: regex screen", "- Refund could run before the reviewer: reviewer now first", "- Wrong category's return window: category filter (22 to 24 of 24)"], size=11, space=3)
-label(s, 9.35, 1.45, 3.4, 0.3, "SAFETY BUILT IN", size=10, bold=True, color=GREEN)
-label(s, 9.35, 1.75, 3.4, 1.6, ["- Refunds over Rs 2,000 always go to a human", "- Injection blocked in tickets and policy text", "- Unsupported policy answers are blocked"], size=11, space=3)
-table(s, 0.6, 4.1, 12.15, [
+for i, (v, cap, c) in enumerate([("98", "unit tests passed (fresh clone)", TEAL), ("20 / 20", "golden tickets, stored and live", GREEN),
+                                  ("1.0", "4 components, 5 items each", GREEN), ("1.0", "answer faithfulness (judge)", GREEN),
+                                  ("1.000", "M4 recall@3, hybrid retrieval", TEAL)]):
+    stat(s, 0.6 + i * 2.45, 1.5, 2.3, v, cap, c)
+label(s, 0.6, 2.7, 8, 0.3, "FOUND BY RUNNING IT, THEN FIXED", size=10, bold=True, color=TEAL)
+numbered(s, 0.6, 3.0, 2.7, 2.5, "01", "Hinglish injection phrase slipped past the model", "Regex screen in code")
+numbered(s, 3.42, 3.0, 2.7, 2.5, "02", "A refund could run before the reviewer looked", "Reviewer now runs first")
+numbered(s, 6.24, 3.0, 2.7, 2.5, "03", "Wrong category's return window quoted", "Category filter: 22 to 24 of 24")
+box(s, 9.2, 3.0, 3.55, 2.5, fill=NAVY)
+label(s, 9.4, 3.1, 3.2, 0.3, "SAFETY BUILT IN", size=10, bold=True, color=RGBColor(0x90, 0xD0, 0xFE))
+label(s, 9.4, 3.45, 3.2, 2.0, ["- Refunds over Rs 2,000 always go to a human", "- Injection blocked in tickets and policy text", "- Unsupported policy answers are blocked"], size=12, color=WHITE, space=6)
+table(s, 0.6, 5.8, 12.15, [
     ["Demo step", "Command", "What the audience sees"],
     ["1  Tests", "python -m pytest tests -q", "98 passed"],
     ["2  Golden eval", "python scripts/run_m8_golden_eval.py --live", "20 of 20, with guardrail codes"],
-], [1.8, 5.6, 4.75], size=10.5, row_h=0.34)
+], [1.8, 5.6, 4.75], size=10.5, row_h=0.3)
 
 
 # Speaker lines for the two extra tickets, appended to each module slide's notes.
