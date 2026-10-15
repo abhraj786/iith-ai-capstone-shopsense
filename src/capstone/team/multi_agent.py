@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from capstone.agents.action_agent import plan_action
 from capstone.agents.intake_agent import parse_ticket
 from capstone.agents.policy_agent import PolicyAgent
-from capstone.guardrails import apply_guardrails
+from capstone.guardrails import _force_human, apply_guardrails
 from capstone.llm.client import LLMClient
 from capstone.mcp.client import MCPShopSenseToolGateway
 from capstone.tools.lookups import order_category
@@ -22,10 +22,31 @@ from capstone.rag.hybrid import HybridPolicyRetriever
 from capstone.rag.policy_index import PolicyIndex
 from capstone.reliability.tools import ReliableToolGateway
 from capstone.schemas.actions import ActionProposal, RecommendedAction
-from capstone.schemas.intake import SupportTicket
+from capstone.schemas.intake import EscalationSignal, Sentiment, SupportTicket, Urgency
 from capstone.settings import get_settings
 from capstone.tools import actions
 from capstone.tools.repository import Repository, get_repository
+
+
+# Write permissions: each agent may put only its own keys on the shared case board.
+# A write outside the list raises, so a stage cannot quietly overwrite another's work.
+AGENT_SCOPES: dict[str, frozenset[str]] = {
+    "Triage Agent": frozenset({"ticket"}),
+    "Memory Agent": frozenset({"memory_context"}),
+    "Policy RAG Agent": frozenset({"policy_answer"}),
+    "Order-Actions Agent": frozenset({"proposal", "guardrails"}),
+    "Escalation Reviewer Agent": frozenset({"review"}),
+}
+
+
+def commit(board: dict[str, Any], agent: str, **updates: Any) -> None:
+    """Write `updates` to the board if they are inside `agent`'s scope, else raise."""
+    illegal = set(updates) - AGENT_SCOPES[agent]
+    if illegal:
+        raise PermissionError(
+            f"agent '{agent}' wrote outside its scope: {sorted(illegal)}; "
+            f"allowed={sorted(AGENT_SCOPES[agent])}")
+    board.update(updates)
 
 
 class AgentStep(BaseModel):
@@ -95,6 +116,8 @@ class MultiAgentTeam:
             tags=tags or ["shopsense", "m7", channel],
         )
 
+        board: dict[str, Any] = {}
+
         with trace.span("Triage Agent", metadata={"channel": channel}):
             ticket = parse_ticket(
                 self.client,
@@ -105,6 +128,7 @@ class MultiAgentTeam:
                 prior_contacts=lambda t: self.memory_store.prior_contacts(
                     customer_ref, t.order_ref, t.issue_type.value, today, channel),
             )
+        commit(board, "Triage Agent", ticket=ticket)
         steps.append(AgentStep(
             agent="Triage Agent",
             summary="Parsed raw channel text into a validated SupportTicket.",
@@ -113,6 +137,7 @@ class MultiAgentTeam:
 
         with trace.span("Memory Agent", metadata={"customer_ref": customer_ref}):
             memory_context = self.memory_store.customer_context(customer_ref)
+        commit(board, "Memory Agent", memory_context=memory_context)
         steps.append(AgentStep(
             agent="Memory Agent",
             summary="Loaded persistent per-customer support context.",
@@ -120,34 +145,60 @@ class MultiAgentTeam:
         ))
 
         with trace.span("Policy RAG Agent"):
-            policy_query = _policy_query(ticket)
+            policy_query = _policy_query(board["ticket"])
             with trace.span("policy.hybrid_retrieval", metadata={"query": policy_query}):
                 policy_answer = self.policy_agent.answer(
-                    policy_query, category=order_category(self.repo, customer_ref, ticket.order_ref))
+                    policy_query, category=order_category(self.repo, customer_ref, board["ticket"].order_ref))
+        commit(board, "Policy RAG Agent", policy_answer=policy_answer)
         steps.append(AgentStep(
             agent="Policy RAG Agent",
             summary="Answered policy question with citations before action planning.",
             output=policy_answer.model_dump(mode="json"),
         ))
 
+        # Order-Actions only PLANS here. Nothing is written until the reviewer has answered.
         with trace.span("Order-Actions Agent", metadata={"transport": self.tool_transport}) as span:
-            proposal = plan_action(self.repo, ticket, customer_ref, run_date, execute=False)
-            self._apply_tool_result(proposal, customer_ref, ticket.order_ref, today, execute_actions, trace)
-            proposal, guardrails = apply_guardrails(ticket, proposal, policy_answer)
+            proposal = plan_action(self.repo, board["ticket"], customer_ref, run_date, execute=False)
+            if proposal.tool_name == "track_shipment":  # read-only, safe before review
+                self._apply_tool_result(proposal, customer_ref, board["ticket"].order_ref, today, False, trace)
+            proposal, guardrails = apply_guardrails(board["ticket"], proposal, board["policy_answer"])
             span.set_output(proposal.model_dump(mode="json"))
-        steps.append(AgentStep(
+        commit(board, "Order-Actions Agent", proposal=proposal, guardrails=guardrails)
+        action_step = AgentStep(
             agent="Order-Actions Agent",
-            summary=f"Planned or executed the safest deterministic tool action via {self.tool_transport}.",
+            summary=f"Planned the safest deterministic tool action; runs via {self.tool_transport} after review.",
             output=proposal.model_dump(mode="json"),
-        ))
+        )
+        steps.append(action_step)
 
+        # The reviewer sees the ticket, the plan and the policy answer, and re-derives the risk
+        # itself. It can only tighten the plan (send it to a human), never loosen it.
         with trace.span("Escalation Reviewer Agent"):
-            review = self._review(ticket, proposal)
+            review = self.review_case(board["ticket"], board["proposal"], board["policy_answer"])
+            if review["overrode_order_actions"]:
+                _force_human(board["proposal"], board["ticket"], trigger=review["trigger"], note=review["reason"])
+        commit(board, "Escalation Reviewer Agent", review=review)
         steps.append(AgentStep(
             agent="Escalation Reviewer Agent",
-            summary="Checked whether the case may be auto-resolved or must wait for a human.",
+            summary="Re-checked the plan independently; may send the case to a human, never waive a human check.",
             output=review,
         ))
+
+        # Only now do the tools run (the write tools only if the caller asked to execute).
+        proposal = board["proposal"]
+        if proposal.tool_name != "track_shipment":
+            with trace.span("Order-Actions Agent: execute", metadata={"transport": self.tool_transport}) as span:
+                self._apply_tool_result(proposal, customer_ref, board["ticket"].order_ref, today, execute_actions, trace)
+                span.set_output(proposal.model_dump(mode="json"))
+        action_step.output = proposal.model_dump(mode="json")
+        if proposal.requires_human and not review["requires_human"]:
+            # A tool failed and the reliability layer queued the case for a human: say so.
+            review = {**review, "decision": "human_review", "requires_human": True,
+                      "reason": proposal.tool_args.get("note") or "tool_failure_fallback"}
+            board["review"] = review
+            steps[-1].output = review
+        action_step.summary = f"Planned, then ran the safest deterministic tool action via {self.tool_transport}."
+        ticket, policy_answer, guardrails = board["ticket"], board["policy_answer"], board["guardrails"]
 
         self.memory_store.append_ticket(
             customer_ref,
@@ -248,22 +299,43 @@ class MultiAgentTeam:
                 )
 
     @staticmethod
-    def _review(ticket: SupportTicket, proposal: ActionProposal) -> dict[str, Any]:
+    def review_case(
+        ticket: SupportTicket, proposal: ActionProposal, policy_answer: Any = None,
+    ) -> dict[str, Any]:
+        """Independent second opinion. Reads the ticket and the plan, not the planner's reasoning."""
         if proposal.recommended_action is RecommendedAction.request_missing_info:
             return {
-                "decision": "ask_customer",
-                "requires_human": False,
+                "decision": "ask_customer", "requires_human": False,
+                "overrode_order_actions": False, "trigger": None,
                 "reason": "Missing fields must be collected before action.",
             }
+        own_trigger: str | None = None
+        if EscalationSignal.legal_or_regulatory in ticket.escalation_signals:
+            own_trigger = EscalationSignal.legal_or_regulatory.value
+        elif EscalationSignal.product_safety in ticket.escalation_signals:
+            own_trigger = EscalationSignal.product_safety.value
+        elif ticket.sentiment in {Sentiment.angry, Sentiment.distressed}:
+            own_trigger = EscalationSignal.angry_or_abusive.value
+        elif ticket.urgency is Urgency.critical:
+            own_trigger = EscalationSignal.human_requested.value
+        elif (policy_answer is not None and not policy_answer.grounded
+              and proposal.recommended_action in {RecommendedAction.refund, RecommendedAction.replacement}):
+            own_trigger = EscalationSignal.human_requested.value
         if proposal.requires_human:
             return {
-                "decision": "human_review",
-                "requires_human": True,
+                "decision": "human_review", "requires_human": True,
+                "overrode_order_actions": False, "trigger": own_trigger,
                 "reason": proposal.tool_args.get("trigger") or proposal.reason_code or "requires_human",
             }
+        if own_trigger:
+            return {
+                "decision": "human_review", "requires_human": True,
+                "overrode_order_actions": True, "trigger": own_trigger,
+                "reason": f"Reviewer found `{own_trigger}` that the plan did not act on.",
+            }
         return {
-            "decision": "auto_resolve",
-            "requires_human": False,
+            "decision": "auto_resolve", "requires_human": False,
+            "overrode_order_actions": False, "trigger": None,
             "reason": "Low-risk deterministic action path.",
         }
 

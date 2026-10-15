@@ -95,6 +95,22 @@ def flag_for_human(
     return gateway.flag_for_human(customer_ref, order_ref, trigger, note)
 
 
+# A RESOURCE, not a tool: the application loads this; no model decides to call it.
+# There is deliberately no delete tool and no arbitrary-write tool on this server. The only
+# writes are idempotent refund / replacement / human-queue records, and every lookup is
+# scoped to the requesting customer.
+@mcp.resource("shopsense://policy/tool-rules")
+def tool_rules() -> str:
+    """House rules for using the order tools, identical for chat and email."""
+    return (
+        "SHOPSENSE TOOL RULES\n"
+        "1. Every call carries customer_ref; an order is visible only to its owner.\n"
+        "2. Refunds above the auto cap, or flagged for a human, are queued, not issued.\n"
+        "3. issue_refund / create_replacement are idempotent per order and reason.\n"
+        "4. The channel (chat or email) never changes which tools exist or what they allow.\n"
+    )
+
+
 def main() -> None:
     mcp.run()
 

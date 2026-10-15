@@ -39,6 +39,14 @@ class ShopSenseMCPClient:
     def call_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         return anyio.run(self._call_tool, name, arguments)
 
+    def read_resource(self, uri: str) -> str:
+        return anyio.run(self._read_resource, uri)
+
+    async def _read_resource(self, uri: str) -> str:
+        async with self._session() as session:
+            result = await session.read_resource(uri)
+            return "".join(getattr(c, "text", "") for c in result.contents)
+
     async def _list_tools(self) -> list[str]:
         async with self._session() as session:
             tools = await session.list_tools()
