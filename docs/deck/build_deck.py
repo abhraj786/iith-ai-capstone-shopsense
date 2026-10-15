@@ -133,7 +133,7 @@ s.notes_slide.notes_text_frame.text = "Open with the promise: routine tickets re
 
 # 3 Architecture
 s = new_slide("One pipeline: parse, look up, ground, plan, then gate", "End-to-end architecture",
-              "Walk left to right. The bottom band wraps everything: LangGraph orchestration, tracing, and the API. The red gate is the deterministic guardrail layer. Unit tests per module: M1 13, M2 22, M3 5, M4 2, M5 3, M6 6, M7 3, M8 3.")
+              "Walk left to right. The bottom band wraps everything: LangGraph orchestration, tracing, and the API. The red gate is the deterministic guardrail layer. Unit tests per module: M1 13, M2 22, M3 5, M4 2, M5 6, M6 6, M7 3, M8 3.")
 y = 2.0
 xs = [0.5, 2.85, 5.2, 7.55]
 node(s, xs[0], y, 2.0, 1.1, "Customer message", "chat / email text", fill=GREY)
@@ -341,18 +341,52 @@ table(s, 6.85, 4.25, 5.9, [
 label(s, 0.6, 5.95, 12.1, 0.4, "No LLM writes the answer, so a window or amount cannot be invented. The order's category picks the right rulebook.", size=12, bold=True, color=NAVY)
 runbar(s, 6.45, ["pytest tests/unit/test_policy_agent.py tests/unit/test_policy_index.py", "python scripts/run_retrieval_eval.py"])
 
-# 6 M5 + M6
-s = new_slide("M5 and M6: a pausable graph run by specialist agents", "Modules 5 and 6  |  workflow and multi-agent",
-    "LangGraph gives three things: explicit routing, saved state and a real interrupt. The human path is not a flag; the graph stops until someone approves. In M6 each agent has one job and all tool access goes through an MCP server, so the trace reads like an org chart.")
-column(s, 0.6, W, "M5", "LangGraph workflow", [
-    ("What", ["- One graph: memory, policy check, action, then route", "- Routes: missing info, human interrupt, or auto-execute"], 0.85),
-    ("How", ["- SqliteSaver checkpoints; interrupt before human review", "- Routing is set by the guardrail result, not the LLM"], 0.85),
-    ("Proof", ["- Auto path and interrupt path both tested; 3 tests"], 0.5)])
-column(s, 6.75, W, "M6", "Multi-agent team + MCP", [
-    ("What", ["- Four specialists: Memory, Policy RAG, Order-Actions, Escalation Reviewer"], 0.5),
-    ("How", ["- Tools served by an MCP server, called by an MCP client", "- Each agent is its own span; the reviewer has the last word"], 0.85),
-    ("Proof", ["- Same decisions as the single-agent path; 6 tests", "- Agent spans visible in LangFuse"], 0.85)])
-runbar(s, 6.25, ["pytest tests/unit/test_workflow.py", "pytest tests/unit/test_mcp_tools.py tests/unit/test_multi_agent_team.py"])
+# 6 M5 workflow sequence (+ M6 strip)
+s = new_slide("M5: the graph pauses for a human and survives a restart", "Module 5  |  LangGraph workflow, same customer and order",
+    "Same sample. Triage (M1), memory (M3), policy (M4) and action planning (M2) run as four graph nodes; after each one the state is written to a SQLite checkpoint. A plain function then routes: this ticket is above the 2,000 cap, so it goes to the human gate. The gate calls interrupt and the run stops. We tested a real restart: the first Python process ended, a second one opened the same SQLite file, found the run parked at the human gate and resumed it with an approval from ops_manager. The gate node only reads state before interrupt, because on resume that node re-runs from the top; the irreversible step is its own node after the pause and runs once (a test counts the calls). A rejection ends the run with status human_rejected and nothing executes. The audit log records who decided and when. Honest limits: approval here executes the escalation, meaning the case is filed to the human desk with flag_for_human; it does not issue the Rs 12,999 refund. The identity of the approver is recorded but not authenticated; that belongs to the API layer. The graph has no loops, so the lab's revision guard does not apply. Checks: pytest tests/unit/test_workflow.py. Full diagram: docs/diagrams/m5_workflow_sequence.md.")
+cx = [1.2, 2.8, 4.4, 5.8]
+names = [("Ticket", GREY), ("Graph", NAVY), ("SQLite file", NAVY), ("Human", AMBER)]
+for x, (n, c) in zip(cx, names):
+    node(s, x - 0.62, 1.5, 1.24, 0.5, n, fill=c, fg=INK if n == "Human" else WHITE)
+    ln = s.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, Inches(x), Inches(2.0), Inches(x), Inches(5.55))
+    ln.line.color.rgb, ln.line.width = RGBColor(0xB8, 0xC7, 0xDA), Pt(1.5)
+    ln.line.dash_style = MSO_LINE.DASH
+ROW0, ROWH = 2.08, 0.43
+def ry(i): return ROW0 + i * ROWH
+def msg(i, a, b, txt, color=GREY):
+    y = ry(i) + 0.4
+    arrow(s, cx[a], y, cx[b], y, color=color)
+    label(s, min(cx[a], cx[b]) + 0.02, y - 0.27, abs(cx[b] - cx[a]) - 0.04, 0.26, txt, size=10, color=INK, align=PP_ALIGN.CENTER, space=0)
+def note(i, x, w, txt, fill=LIGHT, line=GREY, color=INK):
+    box(s, x, ry(i) + 0.05, w, 0.36, fill=fill, line=line)
+    label(s, x + 0.03, ry(i) + 0.09, w - 0.06, 0.28, txt, size=10, bold=True, color=color, align=PP_ALIGN.CENTER, space=0)
+msg(0, 0, 1, "1 Start run")
+note(1, 1.9, 2.4, "2 Triage, memory, policy, action")
+msg(2, 1, 2, "3 Save after each node", color=GREEN)
+note(3, 1.95, 2.0, "4 Route: over cap, so human")
+msg(4, 1, 3, "5 Interrupt: pause", color=AMBER)
+note(5, 2.4, 3.0, "6 Process may stop here", PINK, RED, RED)
+msg(6, 3, 1, "7 Approved by ops_manager", color=GREEN)
+note(7, 1.95, 2.0, "8 Execute once, audit it")
+label(s, 6.85, 1.5, 5.9, 0.3, "SAME TICKET AS M1-M4: ORDER KW-O-000000, RS 12,999", size=11, bold=True, color=TEAL)
+box(s, 6.85, 1.85, 5.9, 0.95, fill=RGBColor(0xE6, 0xF4, 0xEA), line=GREEN)
+label(s, 6.95, 1.88, 5.7, 0.9, [("Real run, with a real process restart", {"bold": True, "color": GREEN}),
+    "Paused at the human gate, trigger refund_above_auto_cap, 4 checkpoint files. A second Python process opened the same file: run recovered, parked at the gate. Resumed with approval: status human_approved_executed."], size=10, space=2)
+box(s, 6.85, 2.9, 5.9, 0.8, fill=LIGHT, line=GREY)
+label(s, 6.95, 2.93, 5.7, 0.75, [("What approval does here", {"bold": True, "color": NAVY}),
+    "The case is filed to the human desk (flag_for_human). It does not pay the Rs 12,999. The approver and time go into the audit log."], size=10, space=2)
+label(s, 6.85, 3.78, 5.9, 0.3, "CHECKED AGAINST THE LAB'S MILESTONE LIST", size=10, bold=True, color=TEAL)
+table(s, 6.85, 4.08, 5.9, [
+    ["Lab item", "Here"],
+    ["Typed state, audit field with a reducer", "audit_log (append)"],
+    ["Routing as pure functions", "tested without a graph"],
+    ["Durable checkpointer, restart", "SqliteSaver, tested"],
+    ["Irreversible step after the pause", "own node, runs once"],
+], [3.5, 2.4], size=10.5, row_h=0.28)
+box(s, 0.6, 5.7, 12.15, 0.65, fill=LIGHT, line=GREY)
+label(s, 0.7, 5.74, 11.95, 0.6, [("M6 in one line: ", {"bold": True, "color": NAVY}),
+    "four specialist agents (Memory, Policy RAG, Order-Actions, Escalation reviewer); all tools served by an MCP server; each agent is its own trace span; same decisions as the single-agent path; 6 tests."], size=11, space=0)
+runbar(s, 6.45, ["pytest tests/unit/test_workflow.py", "pytest tests/unit/test_mcp_tools.py tests/unit/test_multi_agent_team.py"])
 
 # 7 M7 + M8
 s = new_slide("M7 and M8: trace every step, prove it on 20 cases", "Modules 7 and 8  |  reliability and evaluation",
@@ -372,7 +406,7 @@ s = new_slide("Results: safety passes; the gaps are stated openly", "Evaluation,
     "Be upfront: intent accuracy of 0.72 is below a 0.8 target on noisy Twitter-style labels; it does not affect safety because the cap and escalation rules are deterministic. The right column is the continuous-improvement story: each row is something the first real run exposed.")
 table(s, 0.6, 1.7, 5.9, [
     ["Check", "Result"],
-    ["Unit tests (fresh clone)", "70 passed"],
+    ["Unit tests (fresh clone)", "73 passed"],
     ["M8 golden, stored", "20 / 20"],
     ["M8 golden, live Gemini", "20 / 20"],
     ["M4 recall@3, hybrid", "1.000"],
@@ -390,7 +424,7 @@ s = new_slide("Live demo in five minutes, and what to remember", "Run it yoursel
     "Order matters: tests for confidence, the strict real demo, the golden eval, then the API. Keep the .env file with the keys beside you; it is not in git. Backup: demo_milestones.py --offline runs with no network. Close on the design principle, then invite questions.")
 table(s, 0.6, 1.7, 12.1, [
     ["Step", "Command", "What the audience sees"],
-    ["1  Tests", "python -m pytest tests -q", "70 passed"],
+    ["1  Tests", "python -m pytest tests -q", "73 passed"],
     ["2  Milestones", "python demo_milestones.py --real", "M1 to M8 on live LLM, Qdrant Cloud, LangFuse"],
     ["3  Golden eval", "python scripts/run_m8_golden_eval.py --live", "20 of 20 with guardrail codes"],
     ["4  API", "uvicorn capstone.api:app, then demo_api_client.py", "/chat decisions for 7 cases"],
@@ -399,7 +433,7 @@ label(s, 0.6, 4.3, 12.1, 0.4, "Setup: copy .env.example to .env and add the Gemi
 box(s, 0.6, 4.85, 12.1, 1.95, fill=NAVY)
 label(s, 0.9, 4.95, 11.5, 1.8, [("Let the model read, let code decide.  A fooled model still cannot move money.", {"size": 17, "bold": True, "color": WHITE}),
     ("Measure, then fix.  Real runs found four weaknesses; each fix has a number.", {"size": 17, "bold": True, "color": WHITE}),
-    ("Every claim is runnable.  70 tests, 20 golden cases, a strict real-services demo.", {"size": 17, "bold": True, "color": WHITE}),
+    ("Every claim is runnable.  73 tests, 20 golden cases, a strict real-services demo.", {"size": 17, "bold": True, "color": WHITE}),
     ("github.com/abhraj786/iith-ai-capstone-shopsense", {"size": 12, "color": RGBColor(0xB8, 0xC7, 0xDA)})], space=6)
 
 assert len(prs.slides) == total_slides, len(prs.slides)

@@ -19,6 +19,7 @@ from capstone.workflow.graph import (
     NativeCheckpointStore,
     WorkflowCheckpointStore,
     WorkflowDeps,
+    build_workflow,
     resume_ticket_workflow,
     run_ticket_workflow,
 )
@@ -143,9 +144,11 @@ def test_m5_interrupts_angry_legal_ticket_for_human(tmp_path):
         deps=deps,
     )
 
-    assert result["status"] == "human_approval_required"
+    assert result["status"] == "human_rejected"
     assert result["route"] == "human_interrupt"
     assert result["human_decision"]["action"] == "rejected"
+    assert not result["action_proposal"]["executed"]
+    assert [e["event"] for e in result["audit_log"]] == ["human_decision"]
     assert result["action_proposal"]["recommended_action"] == "human_review"
     assert result["action_proposal"]["tool_args"]["trigger"] == "legal_or_regulatory"
     assert result["memory_context"]["ticket_count"] == 1
@@ -187,3 +190,58 @@ def test_m5_can_resume_human_approval_and_execute_queue(tmp_path):
     assert result["action_proposal"]["executed"]
     assert result["action_proposal"]["tool_result"]["routes_to"] == "legal_desk"
     assert (tmp_path / "workflow.sqlite").exists()
+    decision, executed = result["audit_log"]
+    assert decision["by"] == "legal_ops" and decision["at"]
+    assert executed["event"] == "action_executed"
+
+
+def test_m5_paused_run_resumes_from_disk_in_a_fresh_process(tmp_path):
+    output = {
+        "issue_type": "refund_request", "order_ref": "KW-O-000950", "sentiment": "angry",
+        "urgency": "critical", "claimed_amount_inr": 6499, "contact_number": 2,
+        "escalation_signals": ["legal_or_regulatory"], "prompt_injection_suspected": False,
+        "missing_fields": [], "summary": "Customer demands a refund and threatens legal action.",
+    }
+    deps, _ = _deps(tmp_path, output)
+    run_ticket_workflow(
+        raw_text="Refund KW-O-000950 or I will file a legal complaint.", channel="email",
+        customer_ref="KW-C-00285", today="2026-03-10", run_id="restart", execute_actions=True, deps=deps)
+    deps.native_checkpointer.conn.close()
+
+    # New connection and a rebuilt graph, as after a redeploy: only the sqlite file survives.
+    deps.native_checkpointer = NativeCheckpointStore(tmp_path / "workflow.sqlite")
+    app = build_workflow(deps)
+    snap = app.get_state(deps.native_checkpointer.config("restart"))
+    assert snap.next == ("human_interrupt",)
+    result = resume_ticket_workflow(
+        run_id="restart", decision={"action": "approved", "approved_by": "ops"}, deps=deps)
+    assert result["status"] == "human_approved_executed"
+
+
+def test_m5_approved_action_runs_exactly_once(tmp_path, monkeypatch):
+    import capstone.workflow.graph as wf
+
+    calls = []
+    real = wf.plan_action
+    monkeypatch.setattr(wf, "plan_action", lambda *a, **k: (calls.append(k.get("execute")), real(*a, **k))[1])
+    output = {
+        "issue_type": "refund_request", "order_ref": "KW-O-000950", "sentiment": "angry",
+        "urgency": "critical", "claimed_amount_inr": 6499, "contact_number": 2,
+        "escalation_signals": ["legal_or_regulatory"], "prompt_injection_suspected": False,
+        "missing_fields": [], "summary": "Customer demands a refund and threatens legal action.",
+    }
+    deps, _ = _deps(tmp_path, output)
+    run_ticket_workflow(
+        raw_text="Refund KW-O-000950 or I will file a legal complaint.", channel="email",
+        customer_ref="KW-C-00285", today="2026-03-10", run_id="once", execute_actions=True, deps=deps)
+    assert calls.count(True) == 0, "nothing irreversible may run before the human answers"
+    resume_ticket_workflow(run_id="once", decision={"action": "approved"}, deps=deps)
+    assert calls.count(True) == 1
+
+
+def test_m5_routers_are_pure_functions_of_state():
+    from capstone.workflow.graph import _route_after_human
+
+    assert _route_after_human({"human_decision": {"action": "approved"}}) == "human_execute"
+    assert _route_after_human({"human_decision": {"action": "rejected"}}) == "end"
+    assert _route_after_human({}) == "end"

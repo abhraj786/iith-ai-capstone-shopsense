@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import date
+from datetime import UTC, date, datetime
+from operator import add
 from pathlib import Path
-from typing import Any, Literal, TypedDict
+from typing import Annotated, Any, Literal, TypedDict
 
 from langgraph.graph import END, StateGraph
 from langgraph.checkpoint.sqlite import SqliteSaver
@@ -47,6 +48,8 @@ class TicketWorkflowState(TypedDict, total=False):
     status: str
     final_message: str
     checkpoints: list[str]
+    # Audit field: append-only (reducer), unlike the control fields above which are overwritten.
+    audit_log: Annotated[list[dict[str, Any]], add]
 
 
 class WorkflowCheckpointStore:
@@ -134,6 +137,11 @@ def _workflow_route(state: TicketWorkflowState) -> Literal["missing_info", "huma
     return "auto_execute"
 
 
+def _route_after_human(state: TicketWorkflowState) -> Literal["human_execute", "end"]:
+    decision = state.get("human_decision") or {}
+    return "human_execute" if decision.get("action") == "approved" else "end"
+
+
 def build_workflow(deps: WorkflowDeps | None = None):
     deps = deps or WorkflowDeps()
 
@@ -195,6 +203,8 @@ def build_workflow(deps: WorkflowDeps | None = None):
         return _checkpoint(deps, "missing_info", next_state)
 
     def human_interrupt_node(state: TicketWorkflowState) -> TicketWorkflowState:
+        # Only reads state before interrupt(): on resume this node re-runs from the top, so any
+        # side effect placed here would run twice. The irreversible step is human_execute_node.
         proposal = ActionProposal.model_validate(state["action_proposal"])
         ticket = SupportTicket.model_validate(state["ticket"])
         decision = interrupt({
@@ -205,26 +215,51 @@ def build_workflow(deps: WorkflowDeps | None = None):
             "recommended_action": proposal.recommended_action.value,
             "explanation": proposal.explanation,
         })
-        approved = isinstance(decision, dict) and decision.get("action") == "approved"
-        if approved and state.get("execute_actions", False):
-            proposal = plan_action(
-                deps.repo,
-                ticket,
-                customer_ref=state["customer_ref"],
-                today=date.fromisoformat(state["today"]),
-                execute=True,
-            )
-        status = "human_approved_executed" if proposal.executed else "human_approval_required"
-        final = "Human approved and action executed." if proposal.executed else "Human approval required before resolution."
+        decision = decision if isinstance(decision, dict) else {"action": "pending"}
+        approved = decision.get("action") == "approved"
+        entry = {
+            "event": "human_decision",
+            "action": decision.get("action", "pending"),
+            "by": decision.get("approved_by") or decision.get("by") or "unknown",
+            "at": datetime.now(UTC).isoformat(timespec="seconds"),
+            "note": decision.get("note", ""),
+        }
         next_state: TicketWorkflowState = {
             **state,
             "route": "human_interrupt",
-            "status": status,
-            "human_decision": decision if isinstance(decision, dict) else {"action": "pending"},
-            "action_proposal": proposal.model_dump(mode="json"),
-            "final_message": final,
+            "human_decision": decision,
+            "status": "human_approved" if approved else "human_rejected",
+            "final_message": "Human approved." if approved else "Human did not approve; no action taken.",
+            "audit_log": [entry],
         }
         return _checkpoint(deps, "human_interrupt", next_state)
+
+    def human_execute_node(state: TicketWorkflowState) -> TicketWorkflowState:
+        """The irreversible step, downstream of the pause and reached only after approval."""
+        ticket = SupportTicket.model_validate(state["ticket"])
+        execute = state.get("execute_actions", False)
+        proposal = plan_action(
+            deps.repo,
+            ticket,
+            customer_ref=state["customer_ref"],
+            today=date.fromisoformat(state["today"]),
+            execute=execute,
+        )
+        next_state: TicketWorkflowState = {
+            **state,
+            "status": "human_approved_executed" if proposal.executed else "human_approval_required",
+            "final_message": (
+                "Human approved and action executed." if proposal.executed
+                else "Human approval required before resolution."
+            ),
+            "action_proposal": proposal.model_dump(mode="json"),
+            "audit_log": [{
+                "event": "action_executed" if proposal.executed else "action_not_executed",
+                "action": proposal.recommended_action.value,
+                "at": datetime.now(UTC).isoformat(timespec="seconds"),
+            }],
+        }
+        return _checkpoint(deps, "human_execute", next_state)
 
     def auto_execute_node(state: TicketWorkflowState) -> TicketWorkflowState:
         ticket = SupportTicket.model_validate(state["ticket"])
@@ -253,6 +288,7 @@ def build_workflow(deps: WorkflowDeps | None = None):
     graph.add_node("action_plan", action_node)
     graph.add_node("missing_info", missing_info_node)
     graph.add_node("human_interrupt", human_interrupt_node)
+    graph.add_node("human_execute", human_execute_node)
     graph.add_node("auto_execute", auto_execute_node)
     graph.set_entry_point("triage")
     graph.add_edge("triage", "memory")
@@ -268,7 +304,12 @@ def build_workflow(deps: WorkflowDeps | None = None):
         },
     )
     graph.add_edge("missing_info", END)
-    graph.add_edge("human_interrupt", END)
+    graph.add_conditional_edges(
+        "human_interrupt",
+        _route_after_human,
+        {"human_execute": "human_execute", "end": END},
+    )
+    graph.add_edge("human_execute", END)
     graph.add_edge("auto_execute", END)
     return graph.compile(checkpointer=deps.native_checkpointer.saver)
 
@@ -293,6 +334,7 @@ def run_ticket_workflow(
         "today": today,
         "execute_actions": execute_actions,
         "checkpoints": [],
+        "audit_log": [],
     }
     return app.invoke(initial, deps.native_checkpointer.config(run_id))
 
