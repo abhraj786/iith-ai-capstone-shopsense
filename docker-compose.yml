@@ -1,2 +1,9 @@
-# TODO M8: Define the application and required services/volumes.
-# This placeholder contains no services and cannot start the application.
+services:
+  shopsense:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env          # model key and optional Langfuse keys; never baked into the image
+    volumes:
+      - ./runtime:/app/runtime   # tickets, memory and traces survive restarts

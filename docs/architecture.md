@@ -34,6 +34,8 @@ Answer checks pass 22/24 without the order category and 24/24 with it. The two m
 
 **M8 golden set** (`scripts/run_m8_golden_eval.py`, 20 cases over 5 customers): 20/20 on stored tickets and 20/20 with live LLM parsing (`--live`). It covers 5 injection variants, over-cap, angry, legal, safety, repeat, cross-customer and nonexistent orders, and out-of-window returns.
 
+**M8 component golden set** (`scripts/run_m8_component_eval.py`, 20 items: 5 each for tool use, retrieval, planning and final answer). Deterministic scorers: tool match, document and keyword hit, action match, answer keywords. Average 1.0 on all four components with real embeddings. An LLM judge (an in-repo judge on the project LLM client, not Ragas, DeepEval or TruLens) scored context relevance on retrieval and faithfulness on answers: faithfulness 1.0 on 5/5, context relevance 0.64 on average. It disagreed with the keyword scorer by more than 0.4 on two items: the product-safety case (the retrieved text is about transfer SLAs, not the sparking and burning report) and the double-charge case (the retrieved text is about refund calculations, not a duplicate payment). The keyword check passed both because the expected words appeared; the judge is right that the retrieval is weak there. The golden label for one answer item first expected the word "human" in a policy answer, which is the planner's job, so the label was corrected. The same 20 items also run as a sequential Langfuse experiment (`--langfuse`).
+
 **M1 intake holdout** (60 records):
 
 | Model | Intent acc. | Sentiment acc. | Escalation recall | Escalation precision |
@@ -51,6 +53,7 @@ Covered:
 - Pydantic schema validation of every ticket.
 - Prompt-injection detection by regex and by the LLM flag. A flagged ticket always goes to a human.
 - The Rs 2000 auto-refund cap, enforced in code, with the amount computed from the order value.
+- Retrieved policy text is scanned too: the policy agent drops instruction-like sentences, and the guardrail layer re-checks the answer and evidence (`retrieved_content_injection_blocked`).
 - Customer-scoped lookups.
 - Human interrupt for the seven escalation signals.
 
@@ -79,4 +82,7 @@ Out of scope in this version:
 - Embeddings: retry with backoff, disk cache, and a hash fallback when no key is set.
 - Logging: LangFuse traces plus local JSONL traces in `runtime/`.
 - Rollback: the Qdrant collection name carries the backend suffix (`_gemini`), so the old collection stays intact. Redeploy the previous git tag.
-- Deferred: container hardening, auth and a public tunnel.
+- Container: `Dockerfile` (python 3.12-slim, editable install, non-root user, health check) and `docker-compose.yml` (loads `.env`, mounts `runtime/`). The image was written but not built here, because Docker is not installed on the development machine.
+- Public endpoint: run `uvicorn capstone.api:app --port 8000`, then `ngrok http 8000`. The Postman collection `docs/postman/shopsense_chat.postman_collection.json` (health, tickets A, B, C and an empty-text 422) was run against a local server; it was not run through a tunnel.
+- Status codes: a malformed request returns 422. A guardrail block returns 200 with `requires_human` and the findings, because a refused-for-safety ticket is a successful hand-over to a person, not a client error.
+- Deferred: auth and rate limiting on the public endpoint.

@@ -408,6 +408,16 @@ For a public tunnel, point the same client at the exposed base URL:
 python demo_api_client.py --url https://<your-ngrok-id>.ngrok-free.app
 ```
 
+Run the component-level eval (tool use, retrieval, planning, final answer). Add `--judge` for the LLM judge
+and the deterministic-vs-judge disagreement list, and `--langfuse` for a Langfuse experiment:
+
+```bash
+python -m scripts.run_m8_component_eval --judge --langfuse
+```
+
+Container and Postman: `docker compose up --build` (needs a `.env`), then import
+`docs/postman/shopsense_chat.postman_collection.json` and set `base_url` (localhost or the ngrok URL).
+
 Run the 20-ticket M8 golden eval:
 
 ```bash

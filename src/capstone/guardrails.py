@@ -73,11 +73,30 @@ def apply_guardrails(
             message=f"Policy answer has unsupported claims: {policy_answer.unsupported_claims}",
         ))
 
+    if policy_answer is not None and scan_retrieved_content(policy_answer):
+        policy_answer_allowed = False
+        findings.append(GuardrailFinding(
+            code="retrieved_content_injection_blocked",
+            message="Retrieved policy text contains instruction-like content; it is not quoted as policy.",
+        ))
+
     return guarded, GuardrailResult(
         passed=not findings,
         policy_answer_allowed=policy_answer_allowed,
         findings=findings,
     )
+
+
+def scan_retrieved_content(policy_answer: PolicyAnswer) -> list[str]:
+    """Return the retrieved snippets (answer text and evidence) that look like injected instructions.
+
+    The policy agent already drops such sentences while building its answer; this is the independent
+    second check on what is about to be shown, using the same patterns as the ticket scan.
+    """
+    from capstone.agents.policy_agent import DOC_INJECTION
+
+    return [text for text in [policy_answer.answer, *policy_answer.evidence]
+            if any(rx.search(text) for rx in DOC_INJECTION)]
 
 
 def safe_policy_answer(policy_answer: dict[str, Any], guardrails: GuardrailResult) -> dict[str, Any]:
