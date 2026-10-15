@@ -30,11 +30,18 @@ def _query_terms(question: str) -> set[str]:
     return {t for t in _tokens(question) if t not in stop and len(t) > 1}
 
 
+def _is_heading(fragment: str) -> bool:
+    """Section headings ("GR-04.2 RETURN WINDOW AND ...") are mostly capitals and carry no rule."""
+    letters = [c for c in fragment if c.isalpha()]
+    return len(letters) > 12 and sum(c.isupper() for c in letters) / len(letters) > 0.6
+
+
 def _sentences(text: str) -> list[str]:
     parts = [p.strip(" -*#") for p in SENTENCE_SPLIT.split(text) if p.strip(" -*#")]
     # Skip document front matter (title / reference block) and overlong run-ons.
     return [p for p in parts if len(p.split()) >= 5 and "Document Reference" not in p and len(p) <= 400
-            and not any(rx.search(p) for rx in DOC_INJECTION) and not DIAGRAM_ART.search(p)]
+            and not any(rx.search(p) for rx in DOC_INJECTION) and not DIAGRAM_ART.search(p)
+            and "#" not in p and not _is_heading(p)]
 
 
 def _stem(term: str) -> str:
@@ -63,6 +70,7 @@ def _evidence_sentences(question: str, hits: list[PolicyHit], limit: int = 4) ->
             score = len(overlap) + (0.75 if has_number and len(overlap) >= 2 else 0.0)
             if any(term in hit.document_slug for term in _query_terms(question)):
                 score += 0.5
+            score += 0.25 * len(_query_terms(question) & set(_tokens(sentence.lower())))  # whole-word matches break stem ties
             if len(overlap) >= 2 or (overlap and has_number):
                 scored.append((score, sentence))
     selected: list[str] = []

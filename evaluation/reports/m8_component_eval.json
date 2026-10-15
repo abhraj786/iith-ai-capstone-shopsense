@@ -8,7 +8,7 @@
   },
   "judge_average": {
     "final_answer": 1.0,
-    "retrieval": 0.64
+    "retrieval": 0.6
   },
   "judge": "in-repo LLM judge on LLMClient (not Ragas/DeepEval/TruLens)",
   "disagreements_over_0.4": [
@@ -18,15 +18,15 @@
       "case_id": "M8-13-product-safety",
       "deterministic": 1.0,
       "judge": 0.0,
-      "judge_reason": "The evidence regarding transfer SLA, ticket priority, and previous contact history is completely unrelated to the safety report about sparking and burning smells."
+      "judge_reason": "The evidence discusses transfer SLAs and previous contact history, which is completely irrelevant to the safety report about sparking and burning smell."
     },
     {
       "item_id": "retrieval-5",
       "component": "retrieval",
       "case_id": "M8-19-double-charge",
       "deterministic": 1.0,
-      "judge": 0.2,
-      "judge_reason": "The evidence discusses refund calculations for returned items and UPI timelines, which are not directly relevant to resolving a double charge payment issue."
+      "judge": 0.0,
+      "judge_reason": "The evidence discusses refund calculations for a returned appliance and UPI refund timelines, which is irrelevant to a customer reporting a double charge payment issue."
     }
   ],
   "rows": [
@@ -71,7 +71,7 @@
       "case_id": "M8-05-legal-large-refund",
       "deterministic": 1.0,
       "judge": 1.0,
-      "judge_reason": "The evidence directly defines the threshold and workflow for a refund amount exceeding INR 2,000.00, which is relevant to the refund_above_auto_cap classification."
+      "judge_reason": "The evidence is directly relevant as it defines the threshold and workflow for a refund exceeding the auto cap, which matches the query context."
     },
     {
       "item_id": "retrieval-2",
@@ -79,7 +79,7 @@
       "case_id": "M8-13-product-safety",
       "deterministic": 1.0,
       "judge": 0.0,
-      "judge_reason": "The evidence regarding transfer SLA, ticket priority, and previous contact history is completely unrelated to the safety report about sparking and burning smells."
+      "judge_reason": "The evidence discusses transfer SLAs and previous contact history, which is completely irrelevant to the safety report about sparking and burning smell."
     },
     {
       "item_id": "retrieval-3",
@@ -87,7 +87,7 @@
       "case_id": "M8-17-out-of-window-return",
       "deterministic": 1.0,
       "judge": 1.0,
-      "judge_reason": "The evidence provides the exact return window and policy details for apparel items which is directly relevant to a change-of-mind return request."
+      "judge_reason": "The evidence provides the standard return window and policy details for apparel items which directly addresses the change-of-mind return question."
     },
     {
       "item_id": "retrieval-4",
@@ -95,15 +95,15 @@
       "case_id": "M8-18-warranty-claim",
       "deterministic": 1.0,
       "judge": 1.0,
-      "judge_reason": "The evidence is directly relevant as it details warranty claim policies and durations for furniture products like tables."
+      "judge_reason": "The evidence provides the exact warranty terms, claim eligibility rules, and durations needed to address a warranty claim for a purchased item like a table."
     },
     {
       "item_id": "retrieval-5",
       "component": "retrieval",
       "case_id": "M8-19-double-charge",
       "deterministic": 1.0,
-      "judge": 0.2,
-      "judge_reason": "The evidence discusses refund calculations for returned items and UPI timelines, which are not directly relevant to resolving a double charge payment issue."
+      "judge": 0.0,
+      "judge_reason": "The evidence discusses refund calculations for a returned appliance and UPI refund timelines, which is irrelevant to a customer reporting a double charge payment issue."
     },
     {
       "item_id": "planning-1",
@@ -146,7 +146,7 @@
       "case_id": "M8-05-legal-large-refund",
       "deterministic": 1.0,
       "judge": 1.0,
-      "judge_reason": "All claims in the answer are directly supported by the provided evidence."
+      "judge_reason": "The answer accurately reflects the provided policy evidence without introducing any unsupported claims."
     },
     {
       "item_id": "final_answer-2",
@@ -154,7 +154,7 @@
       "case_id": "M8-03-auto-refund-small",
       "deterministic": 1.0,
       "judge": 1.0,
-      "judge_reason": "The answer accurately reflects the calculation and details provided directly in the evidence."
+      "judge_reason": "The answer accurately reflects the calculation and details provided directly in the evidence text."
     },
     {
       "item_id": "final_answer-3",
@@ -162,7 +162,7 @@
       "case_id": "M8-02-auto-replace-damaged",
       "deterministic": 1.0,
       "judge": 1.0,
-      "judge_reason": "The answer accurately cites the provided policy evidence without adding any unsupported claims."
+      "judge_reason": "The answer directly quotes the provided evidence accurately without introducing any unsupported claims."
     },
     {
       "item_id": "final_answer-4",
@@ -170,7 +170,7 @@
       "case_id": "M8-01-track-calm",
       "deterministic": 1.0,
       "judge": 1.0,
-      "judge_reason": "The answer directly and faithfully quotes the provided evidence without introducing any unsupported claims."
+      "judge_reason": "The answer accurately quotes the policy evidence provided without adding any unsupported claims."
     },
     {
       "item_id": "final_answer-5",
@@ -178,12 +178,7 @@
       "case_id": "M8-18-warranty-claim",
       "deterministic": 1.0,
       "judge": 1.0,
-      "judge_reason": "All claims made in the answer are directly supported by the provided evidence text."
+      "judge_reason": "All claims made in the answer are directly supported by the provided evidence."
     }
-  ],
-  "langfuse_experiment": {
-    "run_name": "shopsense-m8-component-golden - 2026-10-15T11:50:05.384099Z",
-    "items": 20,
-    "dataset_run_url": null
-  }
+  ]
 }
