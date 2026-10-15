@@ -506,7 +506,9 @@ M6 separates the system into named agents and exposes the operational tools over
 - `ShopSenseToolGateway` is the shared facade around order lookup, tracking, refund, replacement, calculator, approval, and human-queue tools.
 - `capstone.mcp.server` exposes those functions through `FastMCP`.
 - `ShopSenseMCPClient` can discover and call the MCP server over stdio, matching the lab-style protocol flow.
-- `MultiAgentTeam` runs Triage Agent, Memory Agent, Policy RAG Agent, Order-Actions Agent, and Escalation Reviewer Agent.
+- `MultiAgentTeam` runs Triage Agent, Supervisor Agent, Memory Agent, Policy RAG Agent, Order-Actions Agent, and Escalation Reviewer Agent.
+- The Supervisor (`team/supervisor.py`) is an LLM router. It sees only the structured ticket and picks `full`, `fast_track` (plain tracking or product questions) or `escalate_now` (legal or safety tickets). Code computes which routes are allowed for the ticket, so a risky ticket can only get `full`; an off-menu answer or an LLM failure falls back to `full`. The reviewer and the write step run after every route.
+- Revision loop: if the reviewer finds the policy answer ungrounded for a refund or replacement, it sends the plan back for a wider policy lookup, at most `MAX_REVISIONS` (2) times, then a human decides.
 - The team accepts a `channel` field, so chat and email tickets use the same tool boundary.
 - Tests verify customer-scoped MCP order access, refund calculator exposure, protocol-backed tool invocation, legal-ticket escalation, and shared tools across chat/email.
 

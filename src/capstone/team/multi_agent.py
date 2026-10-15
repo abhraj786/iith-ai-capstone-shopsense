@@ -24,6 +24,7 @@ from capstone.reliability.tools import ReliableToolGateway
 from capstone.schemas.actions import ActionProposal, RecommendedAction
 from capstone.schemas.intake import EscalationSignal, Sentiment, SupportTicket, Urgency
 from capstone.settings import get_settings
+from capstone.team.supervisor import Route, decide_route
 from capstone.tools import actions
 from capstone.tools.repository import Repository, get_repository
 
@@ -32,11 +33,15 @@ from capstone.tools.repository import Repository, get_repository
 # A write outside the list raises, so a stage cannot quietly overwrite another's work.
 AGENT_SCOPES: dict[str, frozenset[str]] = {
     "Triage Agent": frozenset({"ticket"}),
+    "Supervisor Agent": frozenset({"route"}),
     "Memory Agent": frozenset({"memory_context"}),
     "Policy RAG Agent": frozenset({"policy_answer"}),
     "Order-Actions Agent": frozenset({"proposal", "guardrails"}),
     "Escalation Reviewer Agent": frozenset({"review"}),
 }
+
+
+MAX_REVISIONS = 2  # reviewer may send the plan back at most this many times, then a human decides
 
 
 def commit(board: dict[str, Any], agent: str, **updates: Any) -> None:
@@ -64,6 +69,8 @@ class TeamResult(BaseModel):
     memory_context: dict[str, Any]
     escalation_review: dict[str, Any]
     guardrails: dict[str, Any] = Field(default_factory=dict)
+    route: dict[str, Any] = Field(default_factory=dict)
+    revisions: list[dict[str, Any]] = Field(default_factory=list)
     steps: list[AgentStep]
     trace: dict[str, Any] = Field(default_factory=dict)
 
@@ -137,6 +144,16 @@ class MultiAgentTeam:
             output=ticket.model_dump(mode="json"),
         ))
 
+        with trace.span("Supervisor Agent") as span:
+            route = decide_route(self.client, board["ticket"])
+            span.set_output(route)
+        commit(board, "Supervisor Agent", route=route)
+        steps.append(AgentStep(
+            agent="Supervisor Agent",
+            summary=f"Chose the `{route['route']}` route ({route['source']}); the reviewer runs on every route.",
+            output=route,
+        ))
+
         with trace.span("Memory Agent", metadata={"customer_ref": customer_ref}):
             memory_context = self.memory_store.customer_context(customer_ref)
         commit(board, "Memory Agent", memory_context=memory_context)
@@ -146,41 +163,50 @@ class MultiAgentTeam:
             output=memory_context,
         ))
 
-        with trace.span("Policy RAG Agent"):
-            policy_query = _policy_query(board["ticket"])
-            with trace.span("policy.hybrid_retrieval", metadata={"query": policy_query}):
-                policy_answer = self.policy_agent.answer(
-                    policy_query, category=order_category(self.repo, customer_ref, board["ticket"].order_ref))
-        commit(board, "Policy RAG Agent", policy_answer=policy_answer)
-        steps.append(AgentStep(
-            agent="Policy RAG Agent",
-            summary="Answered policy question with citations before action planning.",
-            output=policy_answer.model_dump(mode="json"),
-        ))
+        category = order_category(self.repo, customer_ref, board["ticket"].order_ref)
+        if route["route"] == Route.full.value:
+            with trace.span("Policy RAG Agent"):
+                policy_query = _policy_query(board["ticket"])
+                with trace.span("policy.hybrid_retrieval", metadata={"query": policy_query}):
+                    policy_answer = self.policy_agent.answer(policy_query, category=category)
+            commit(board, "Policy RAG Agent", policy_answer=policy_answer)
+            steps.append(AgentStep(
+                agent="Policy RAG Agent",
+                summary="Answered policy question with citations before action planning.",
+                output=policy_answer.model_dump(mode="json"),
+            ))
+        else:
+            commit(board, "Policy RAG Agent", policy_answer=None)
+            steps.append(AgentStep(
+                agent="Policy RAG Agent",
+                summary=f"Skipped: the `{route['route']}` route needs no policy lookup.",
+                output={"skipped": True},
+            ))
 
-        # Order-Actions only PLANS here. Nothing is written until the reviewer has answered.
-        with trace.span("Order-Actions Agent", metadata={"transport": self.tool_transport}) as span:
-            proposal = plan_action(self.repo, board["ticket"], customer_ref, run_date, execute=False,
-                                   gateway=self.tool_gateway)
-            if proposal.tool_name == "track_shipment":  # read-only, safe before review
-                self._apply_tool_result(proposal, customer_ref, board["ticket"].order_ref, today, False, trace)
-            proposal, guardrails = apply_guardrails(board["ticket"], proposal, board["policy_answer"])
-            span.set_output(proposal.model_dump(mode="json"))
-        commit(board, "Order-Actions Agent", proposal=proposal, guardrails=guardrails)
+        # Order-Actions only PLANS. Nothing is written until the reviewer has answered. The reviewer sees
+        # the ticket, the plan and the policy answer, re-derives the risk itself, and can only tighten.
+        review = self._plan_and_review(trace, board, customer_ref, run_date, today, route)
+        revisions: list[dict[str, Any]] = []
+        while review["revise"] and len(revisions) < MAX_REVISIONS:
+            n = len(revisions) + 1
+            with trace.span(f"Revision round {n}", metadata={"feedback": review["feedback"]}):
+                with trace.span("Policy RAG Agent: revised lookup"):
+                    revised = self.policy_agent.answer(
+                        _revision_query(board["ticket"]), limit=5 + 3 * n, category=category)
+                commit(board, "Policy RAG Agent", policy_answer=revised)
+                review = self._plan_and_review(trace, board, customer_ref, run_date, today, route)
+            revisions.append({"round": n, "feedback": "see previous review", "policy_grounded": revised.grounded,
+                              "decision": review["decision"]})
+        if review["revise"]:  # cap reached: a human decides
+            review = {**review, "revise": False, "reason": f"{review['reason']} (still ungrounded after {MAX_REVISIONS} revisions)"}
+            board["review"] = review
+        proposal = board["proposal"]
         action_step = AgentStep(
             agent="Order-Actions Agent",
             summary=f"Planned the safest deterministic tool action; runs via {self.tool_transport} after review.",
             output=proposal.model_dump(mode="json"),
         )
         steps.append(action_step)
-
-        # The reviewer sees the ticket, the plan and the policy answer, and re-derives the risk
-        # itself. It can only tighten the plan (send it to a human), never loosen it.
-        with trace.span("Escalation Reviewer Agent"):
-            review = self.review_case(board["ticket"], board["proposal"], board["policy_answer"])
-            if review["overrode_order_actions"]:
-                _force_human(board["proposal"], board["ticket"], trigger=review["trigger"], note=review["reason"])
-        commit(board, "Escalation Reviewer Agent", review=review)
         steps.append(AgentStep(
             agent="Escalation Reviewer Agent",
             summary="Re-checked the plan independently; may send the case to a human, never waive a human check.",
@@ -188,7 +214,6 @@ class MultiAgentTeam:
         ))
 
         # Only now do the tools run (the write tools only if the caller asked to execute).
-        proposal = board["proposal"]
         if proposal.tool_name != "track_shipment":
             with trace.span("Order-Actions Agent: execute", metadata={"transport": self.tool_transport}) as span:
                 self._apply_tool_result(proposal, customer_ref, board["ticket"].order_ref, today, execute_actions, trace)
@@ -218,14 +243,36 @@ class MultiAgentTeam:
             channel=channel,
             customer_ref=customer_ref,
             ticket=ticket.model_dump(mode="json"),
-            policy_answer=policy_answer.model_dump(mode="json"),
+            policy_answer=policy_answer.model_dump(mode="json") if policy_answer else {"skipped": True},
             action_proposal=proposal.model_dump(mode="json"),
             memory_context=updated_memory,
             escalation_review=review,
             guardrails=guardrails.model_dump(mode="json"),
+            route=route,
+            revisions=revisions,
             steps=steps,
             trace=trace_result,
         )
+
+    def _plan_and_review(self, trace, board, customer_ref, run_date, today, route) -> dict[str, Any]:
+        """One planning pass followed by the independent review. Writes nothing."""
+        ticket = board["ticket"]
+        with trace.span("Order-Actions Agent", metadata={"transport": self.tool_transport}) as span:
+            proposal = plan_action(self.repo, ticket, customer_ref, run_date, execute=False, gateway=self.tool_gateway)
+            if proposal.tool_name == "track_shipment":  # read-only, safe before review
+                self._apply_tool_result(proposal, customer_ref, ticket.order_ref, today, False, trace)
+            proposal, guardrails = apply_guardrails(ticket, proposal, board["policy_answer"])
+            if route["route"] == Route.escalate_now.value and not proposal.requires_human:
+                _force_human(proposal, ticket, trigger=EscalationSignal.human_requested.value,
+                             note="Supervisor routed this ticket straight to a human.")
+            span.set_output(proposal.model_dump(mode="json"))
+        commit(board, "Order-Actions Agent", proposal=proposal, guardrails=guardrails)
+        with trace.span("Escalation Reviewer Agent"):
+            review = self.review_case(ticket, board["proposal"], board["policy_answer"])
+            if review["overrode_order_actions"]:
+                _force_human(board["proposal"], ticket, trigger=review["trigger"], note=review["reason"])
+        commit(board, "Escalation Reviewer Agent", review=review)
+        return review
 
     @property
     def tool_transport(self) -> str:
@@ -309,10 +356,11 @@ class MultiAgentTeam:
         if proposal.recommended_action is RecommendedAction.request_missing_info:
             return {
                 "decision": "ask_customer", "requires_human": False,
-                "overrode_order_actions": False, "trigger": None,
+                "overrode_order_actions": False, "trigger": None, "revise": False, "feedback": "",
                 "reason": "Missing fields must be collected before action.",
             }
         own_trigger: str | None = None
+        ungrounded = False
         if EscalationSignal.legal_or_regulatory in ticket.escalation_signals:
             own_trigger = EscalationSignal.legal_or_regulatory.value
         elif EscalationSignal.product_safety in ticket.escalation_signals:
@@ -324,23 +372,31 @@ class MultiAgentTeam:
         elif (policy_answer is not None and not policy_answer.grounded
               and proposal.recommended_action in {RecommendedAction.refund, RecommendedAction.replacement}):
             own_trigger = EscalationSignal.human_requested.value
+            ungrounded = True
         if proposal.requires_human:
             return {
                 "decision": "human_review", "requires_human": True,
-                "overrode_order_actions": False, "trigger": own_trigger,
+                "overrode_order_actions": False, "trigger": own_trigger, "revise": False, "feedback": "",
                 "reason": proposal.tool_args.get("trigger") or proposal.reason_code or "requires_human",
             }
         if own_trigger:
             return {
                 "decision": "human_review", "requires_human": True,
                 "overrode_order_actions": True, "trigger": own_trigger,
+                "revise": ungrounded,
+                "feedback": "The policy answer is not grounded; look the policy up again." if ungrounded else "",
                 "reason": f"Reviewer found `{own_trigger}` that the plan did not act on.",
             }
         return {
             "decision": "auto_resolve", "requires_human": False,
-            "overrode_order_actions": False, "trigger": None,
+            "overrode_order_actions": False, "trigger": None, "revise": False, "feedback": "",
             "reason": "Low-risk deterministic action path.",
         }
+
+
+def _revision_query(ticket: SupportTicket) -> str:
+    """Broader wording for a second look: drop the free-text summary, keep the policy topic."""
+    return f"{ticket.issue_type.value.replace('_', ' ')} return refund window eligibility policy"
 
 
 def _policy_query(ticket: SupportTicket) -> str:
