@@ -301,9 +301,11 @@ The team can also use the lab-style MCP path through `ShopSenseMCPClient`:
 MultiAgentTeam -> MCP client -> MCP server -> deterministic Python tools
 ```
 
-The direct Python gateway remains available as a fast local fallback, but the
-M6 tests include a protocol-backed call that discovers and invokes the running
-MCP server over stdio.
+The direct Python gateway is the default. Set `CAPSTONE_TOOL_TRANSPORT=mcp` to
+send every order tool call (eligibility, refund amount, approver tier, tracking,
+final write) through the MCP server instead, including from the `/chat` API.
+The M6 tests include a protocol-backed call that discovers and invokes the
+running MCP server over stdio.
 
 Run the M6 tests:
 

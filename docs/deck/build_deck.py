@@ -383,10 +383,51 @@ table(s, 6.85, 4.08, 5.9, [
     ["Durable checkpointer, restart", "SqliteSaver, tested"],
     ["Irreversible step after the pause", "own node, runs once"],
 ], [3.5, 2.4], size=10.5, row_h=0.28)
-box(s, 0.6, 5.7, 12.15, 0.65, fill=LIGHT, line=GREY)
-label(s, 0.7, 5.74, 11.95, 0.6, [("M6 in one line: ", {"bold": True, "color": NAVY}),
-    "five stages (Triage, Memory, Policy RAG, Order-Actions, Escalation Reviewer), each limited to its own board keys. The reviewer re-checks the plan before any write and can only send it to a human. Every tool call goes through one gateway, in-process or MCP (set by CAPSTONE_TOOL_TRANSPORT): same chat and email result. 13 tests."], size=11, space=0)
-runbar(s, 6.45, ["pytest tests/unit/test_workflow.py", "pytest tests/unit/test_mcp_tools.py tests/unit/test_multi_agent_team.py"])
+runbar(s, 6.45, ["pytest tests/unit/test_workflow.py"])
+
+# M6 multi-agent team + MCP
+s = new_slide("M6: five agents, each in its own lane, tools over MCP", "Module 6  |  multi-agent team, same customer and order",
+    "Same hostile sample, run through the team with MCP on and execute on, once as chat and once as email. Five stages: Triage (the only one that calls an LLM), Memory, Policy RAG, Order-Actions and the Escalation Reviewer. Each stage may write only its own keys on a shared board; a write outside the list raises PermissionError (tested). Order-Actions only plans first. The reviewer then re-checks the ticket, the plan and the policy answer itself, and can only send a case to a human, never waive one; it runs BEFORE any write tool, which fixes an earlier order where a refund could run first. Then the tool runs through one gateway, in-process or over the MCP server (CAPSTONE_TOOL_TRANSPORT=mcp). Real result on this ticket: guardrails prompt_injection_blocked and refund_above_auto_cap_blocked fired, the reviewer said human_review, flag_for_human ran over MCP and filed queue KW-HQ-00002; the email run returned the same id with duplicate true, so chat and email use the same tools with the same result. The Rs 12,999 refund was not issued. The MCP server has 10 tools and one resource (shopsense://policy/tool-rules); there is no delete or arbitrary-write tool, and a wrong customer is refused over the protocol (tested). Honest limits against the lab: we did not build its supervisor with LLM routing and revision loops; ours is a fixed five-stage line, so no loop-back or revision cap is needed. Only Triage uses an LLM. Checks: pytest tests/unit/test_multi_agent_team.py tests/unit/test_mcp_tools.py (13 tests). Full diagram: docs/diagrams/m6_multi_agent_sequence.md.")
+cx = [0.95, 2.4, 3.85, 5.3, 6.75]
+names = [("Ticket", "", GREY), ("Intake", "Triage, Memory, Policy", NAVY), ("Actions", "plan, then run", NAVY), ("Reviewer", "re-checks", RED), ("MCP", "server", AMBER)]
+for x, (n, sub, c) in zip(cx, names):
+    node(s, x - 0.65, 1.5, 1.3, 0.8, n, sub, fill=c, fg=INK if n == "MCP" else WHITE)
+    ln = s.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, Inches(x), Inches(2.3), Inches(x), Inches(6.3))
+    ln.line.color.rgb, ln.line.width = RGBColor(0xB8, 0xC7, 0xDA), Pt(1.5)
+    ln.line.dash_style = MSO_LINE.DASH
+ROW0, ROWH = 2.3, 0.42
+def ry(i): return ROW0 + i * ROWH
+def msg(i, a, b, txt, color=GREY):
+    y = ry(i) + 0.4
+    arrow(s, cx[a], y, cx[b], y, color=color)
+    label(s, min(cx[a], cx[b]) + 0.02, y - 0.27, abs(cx[b] - cx[a]) - 0.04, 0.26, txt, size=10, color=INK, align=PP_ALIGN.CENTER, space=0)
+def note(i, x, w, txt, fill=LIGHT, line=GREY, color=INK):
+    box(s, x, ry(i) + 0.05, w, 0.36, fill=fill, line=line)
+    label(s, x + 0.03, ry(i) + 0.09, w - 0.06, 0.28, txt, size=10, bold=True, color=color, align=PP_ALIGN.CENTER, space=0)
+msg(0, 0, 1, "1 Raw text")
+note(1, 0.95, 2.9, "2 Each writes only its own keys")
+msg(2, 1, 2, "3 Ticket, policy")
+note(3, 2.5, 2.3, "4 Plan + guardrails, no write")
+msg(4, 2, 3, "5 Proposal")
+note(5, 3.9, 2.4, "6 Re-check the risk itself", PINK, RED, RED)
+msg(6, 3, 2, "7 Force human", color=RED)
+msg(7, 2, 4, "8 flag_for_human over MCP", color=AMBER)
+msg(8, 4, 2, "9 Queue KW-HQ-00002", color=GREEN)
+label(s, 7.6, 1.5, 5.15, 0.3, "SAME TICKET AS M1-M5, RUN AS CHAT AND AS EMAIL", size=11, bold=True, color=TEAL)
+box(s, 7.6, 1.85, 5.15, 1.45, fill=RGBColor(0xE6, 0xF4, 0xEA), line=GREEN)
+label(s, 7.7, 1.88, 4.95, 1.4, [("Real run, MCP on", {"bold": True, "color": GREEN}),
+    "Guardrails fired: prompt_injection_blocked, refund_above_auto_cap_blocked. Reviewer: human_review. flag_for_human ran over MCP: queue KW-HQ-00002. The email run got the same id (duplicate = true). The Rs 12,999 refund was not issued."], size=10, space=2)
+label(s, 7.6, 3.4, 5.15, 0.3, "CHECKED AGAINST THE LAB", size=10, bold=True, color=TEAL)
+table(s, 7.6, 3.7, 5.15, [
+    ["Lab item", "Here"],
+    ["Write permission per agent, enforced", "PermissionError, tested"],
+    ["Critic independent, before any write", "yes, tested"],
+    ["MCP tools + resource, no delete tool", "10 tools + 1 resource"],
+    ["Wrong customer refused over MCP", "tested"],
+    ["Supervisor, LLM routing, revision loop", "not built: fixed line"],
+], [3.0, 2.15], size=10.5, row_h=0.3)
+label(s, 7.6, 5.6, 5.15, 0.6, "Only Triage calls an LLM; the other four are deterministic code.", size=11, bold=True, color=NAVY)
+runbar(s, 6.45, ["pytest tests/unit/test_multi_agent_team.py tests/unit/test_mcp_tools.py"])
 
 # 7 M7 + M8
 s = new_slide("M7 and M8: trace every step, prove it on 20 cases", "Modules 7 and 8  |  reliability and evaluation",
@@ -401,10 +442,10 @@ column(s, 6.75, W, "M8", "Golden eval + FastAPI", [
     ("Proof", ["- 20 of 20 stored, 20 of 20 live (Gemini)", "- Local uvicorn run verified; blocked tickets return 200 + human review"], 0.85)])
 runbar(s, 6.25, ["pytest tests/unit/test_reliability.py", "python scripts/run_m8_golden_eval.py --live"])
 
-# 9 Results
-s = new_slide("Results: safety passes; the gaps are stated openly", "Evaluation, improvements and limits",
-    "Be upfront: intent accuracy of 0.72 is below a 0.8 target on noisy Twitter-style labels; it does not affect safety because the cap and escalation rules are deterministic. The right column is the continuous-improvement story: each row is something the first real run exposed.")
-table(s, 0.6, 1.7, 5.9, [
+# 10 Results, limits, demo
+s = new_slide("Results, honest limits, and the five-minute demo", "Evaluation  |  run it yourself",
+    "Be upfront: intent accuracy of 0.72 is below a 0.8 target on noisy Twitter-style labels; it does not affect safety because the cap and escalation rules are deterministic. The middle column is the continuous-improvement story: each row is something the first real run exposed. Demo order: tests for confidence, the strict real demo, the golden eval, then the API. Keep the .env file with the keys beside you; it is not in git. Backup: demo_milestones.py --offline runs with no network. Close on the design principle, then invite questions.")
+table(s, 0.6, 1.5, 4.6, [
     ["Check", "Result"],
     ["Unit tests (fresh clone)", "80 passed"],
     ["M8 golden, stored", "20 / 20"],
@@ -413,28 +454,21 @@ table(s, 0.6, 1.7, 5.9, [
     ["M4 answers, with category", "24 / 24"],
     ["M1 escalation recall", "0.82"],
     ["M1 intent accuracy", "0.72 (target 0.8)"],
-], [3.6, 2.3], size=13, row_h=0.46)
-label(s, 6.8, 1.65, 5.9, 0.4, "FOUND BY RUNNING IT FOR REAL, THEN FIXED", size=11, bold=True, color=TEAL)
-label(s, 6.8, 2.0, 5.9, 2.6, ["- Hash 'embeddings': moved to Gemini + BM25 (recall@3 1.0)", "- Wrong category's window: category filter (22 to 24 of 24)", "- Hinglish injection missed: regex screen added", "- Narrow golden set: rebuilt to 20 cases, live mode"], size=13, space=5)
-label(s, 6.8, 4.15, 5.9, 0.4, "NOT COVERED IN THIS VERSION", size=11, bold=True, color=RED)
-label(s, 6.8, 4.5, 5.9, 2.2, ["- No PII redaction in traces; no auth or rate limit on /chat", "- Injection regex can be evaded by novel phrasing", "- Small corpus (3 policy docs): retrieval numbers optimistic", "- Public endpoint and Docker not exercised"], size=13, space=5)
-
-# 10 Demo + close
-s = new_slide("Live demo in five minutes, and what to remember", "Run it yourself  |  takeaways",
-    "Order matters: tests for confidence, the strict real demo, the golden eval, then the API. Keep the .env file with the keys beside you; it is not in git. Backup: demo_milestones.py --offline runs with no network. Close on the design principle, then invite questions.")
-table(s, 0.6, 1.7, 12.1, [
-    ["Step", "Command", "What the audience sees"],
+], [3.0, 1.6], size=11, row_h=0.34)
+label(s, 5.45, 1.45, 3.7, 0.3, "FOUND BY RUNNING IT, THEN FIXED", size=10, bold=True, color=TEAL)
+label(s, 5.45, 1.75, 3.7, 2.0, ["- Hash 'embeddings': Gemini + BM25 (recall@3 1.0)", "- Wrong category's window: category filter (22 to 24 of 24)", "- Hinglish injection missed: regex screen", "- Refund could run before the reviewer: reviewer now first"], size=11, space=3)
+label(s, 9.35, 1.45, 3.4, 0.3, "NOT COVERED", size=10, bold=True, color=RED)
+label(s, 9.35, 1.75, 3.4, 2.4, ["- No PII redaction in traces; no auth on /chat", "- Injection regex can be evaded", "- Small corpus: retrieval numbers optimistic", "- Team is a fixed line, not a supervisor", "- Docker not exercised"], size=11, space=3)
+table(s, 0.6, 4.35, 12.15, [
+    ["Demo step", "Command", "What the audience sees"],
     ["1  Tests", "python -m pytest tests -q", "80 passed"],
     ["2  Milestones", "python demo_milestones.py --real", "M1 to M8 on live LLM, Qdrant Cloud, LangFuse"],
     ["3  Golden eval", "python scripts/run_m8_golden_eval.py --live", "20 of 20 with guardrail codes"],
     ["4  API", "uvicorn capstone.api:app, then demo_api_client.py", "/chat decisions for 7 cases"],
-], [2.0, 5.6, 4.5], size=13, row_h=0.5)
-label(s, 0.6, 4.3, 12.1, 0.4, "Setup: copy .env.example to .env and add the Gemini, Qdrant and LangFuse keys (git-ignored). Backup: demo_milestones.py --offline.", size=12, color=GREY)
-box(s, 0.6, 4.85, 12.1, 1.95, fill=NAVY)
-label(s, 0.9, 4.95, 11.5, 1.8, [("Let the model read, let code decide.  A fooled model still cannot move money.", {"size": 17, "bold": True, "color": WHITE}),
-    ("Measure, then fix.  Real runs found four weaknesses; each fix has a number.", {"size": 17, "bold": True, "color": WHITE}),
-    ("Every claim is runnable.  80 tests, 20 golden cases, a strict real-services demo.", {"size": 17, "bold": True, "color": WHITE}),
-    ("github.com/abhraj786/iith-ai-capstone-shopsense", {"size": 12, "color": RGBColor(0xB8, 0xC7, 0xDA)})], space=6)
+], [1.8, 5.6, 4.75], size=10.5, row_h=0.3)
+box(s, 0.6, 6.0, 12.15, 0.95, fill=NAVY)
+label(s, 0.8, 6.03, 11.8, 0.9, [("Let the model read, let code decide. A fooled model still cannot move money.", {"size": 14, "bold": True, "color": WHITE}),
+    ("Measure, then fix. Every claim is runnable: 80 tests, 20 golden cases.   github.com/abhraj786/iith-ai-capstone-shopsense", {"size": 12, "bold": True, "color": WHITE})], space=3)
 
 assert len(prs.slides) == total_slides, len(prs.slides)
 prs.save(Path(__file__).with_name("iith-ai-capstone-shopsense.pptx"))
