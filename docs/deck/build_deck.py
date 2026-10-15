@@ -296,24 +296,48 @@ label(s, 6.95, 4.54, 5.7, 0.3, "AFTER THE 8TH TICKET: THE 3 OLDEST ARE CONDENSED
 label(s, 6.95, 4.82, 5.7, 1.15, "Customer awaiting replacement and 12999 refund for damaged delivery on order KW-O-000000; checked status on 2026-07-18. Preferences: leave parcels at the back gate due to a broken doorbell. Safety: allergic to peanuts.", size=11, space=0)
 label(s, 0.6, 6.4, 12.1, 0.6, "The notebook never decides. It supplies one number; code turns it into a flag; M2's rules act on it. Newest 5 stay word-for-word, raw tickets are never deleted.", size=14, bold=True, color=NAVY)
 
-# M3 + M4
-s = new_slide("M3 and M4: remember the customer, answer from the right policy", "Modules 3 and 4  |  memory and policy RAG",
-    "Two stores: a JSON file per customer for who they are and what happened before, Qdrant for what the rules are. Newest 5 tickets stay verbatim; older ones are condensed by the LLM into a summary merged with the previous one, and a live test plants a fact (back gate, peanut allergy) and checks it survives. Memory also counts earlier contacts on the same order and issue, so the repeat-contact flag (3 or more) works even if the customer does not say it; a re-sent message on the same day and channel is not counted twice. Dense alone has the best hit@1, but hybrid reaches recall@3 of 1.0. The bigger win was the category filter: answers went from 22 of 24 to 24 of 24 correct, because groceries, apparel and electronics have different return windows. The answer step is extractive: it quotes policy sentences and writes nothing new.")
-column(s, 0.6, 4.3, "M3", "Memory + index", [
-    ("What", ["- Past tickets and actions per customer; policy indexed for search"], 0.7),
-    ("How", ["- JSON file per customer; newest 5 tickets verbatim, older condensed by the LLM", "- Counts earlier contacts for the 3+ repeat flag", "- Policy chunks in Qdrant, 768-dim Gemini vectors"], 1.4),
-    ("Proof", ["- Planted-fact recall check passes (live LLM); 6 tests"], 0.5)])
-box(s, 5.1, 1.7, 7.6, 0.6, fill=NAVY)
-label(s, 5.25, 1.76, 7.3, 0.5, "M4  Grounded policy RAG  (24 questions)", size=17, bold=True, color=WHITE)
-table(s, 5.1, 2.5, 7.6, [
-    ["Retrieval config", "hit@1", "recall@3", "MRR"],
-    ["Dense only", "0.917", "0.979", "0.951"],
-    ["BM25 only", "0.542", "-", "-"],
-    ["Hybrid fused", "0.875", "1.000", "0.931"],
-    ["Hybrid + rerank", "0.875", "1.000", "0.924"],
-], [3.1, 1.4, 1.6, 1.5], size=13, row_h=0.42)
-label(s, 5.1, 4.75, 7.6, 1.3, ["- Answers with the order's category: 24 of 24 (22 without it)", "- The category excludes other categories' return windows", "- Extractive answers quote the policy text; nothing is invented"], size=13, space=3)
-runbar(s, 6.25, ["pytest tests/unit/test_memory.py tests/unit/test_policy_index.py", "python scripts/run_retrieval_eval.py"])
+# M4 policy RAG, sequence + sample
+s = new_slide("M4: answers are quoted from the right policy", "Module 4  |  grounded policy RAG, same customer and order",
+    "Same sample: order KW-O-000000 is a Home & Kitchen product, damaged on delivery. The query is built from the M1 ticket and the category comes from the order, not from the LLM. Step 2 is the key one: the category addenda contradict each other (apparel 45 days, Home & Kitchen 30), so other categories are excluded before searching. Without the category the same question returned apparel, furniture and groceries; with it, the answer says 30 days. Search is dense Gemini similarity with a small BM25 boost for exact policy terms; dense alone has the best hit@1 but hybrid reaches recall@3 of 1.0. The answer step uses no LLM: it quotes policy sentences, drops fragments that repeat another sentence, and cites the chunk each sentence came from. A guardrail blocks any answer whose numbers are not in the evidence. Honest limit: because the answer is extractive, that number check passes almost by construction; the real protection is that nothing is generated. Checks: pytest tests/unit/test_policy_agent.py tests/unit/test_policy_index.py and python scripts/run_retrieval_eval.py (24 questions; 24 of 24 with the category, 22 without). Full diagram: docs/diagrams/m4_policy_sequence.md.")
+cx = [1.2, 2.75, 4.3, 5.7]
+names = [("Query", GREY), ("Policy index", NAVY), ("Answer agent", NAVY), ("Guardrail", AMBER)]
+for x, (n, c) in zip(cx, names):
+    node(s, x - 0.62, 1.5, 1.24, 0.5, n, fill=c, fg=INK if n == "Guardrail" else WHITE)
+    ln = s.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, Inches(x), Inches(2.0), Inches(x), Inches(5.85))
+    ln.line.color.rgb, ln.line.width = RGBColor(0xB8, 0xC7, 0xDA), Pt(1.5)
+    ln.line.dash_style = MSO_LINE.DASH
+ROW0, ROWH = 2.08, 0.46
+def ry(i): return ROW0 + i * ROWH
+def msg(i, a, b, txt, color=GREY):
+    y = ry(i) + 0.4
+    arrow(s, cx[a], y, cx[b], y, color=color)
+    label(s, min(cx[a], cx[b]) + 0.02, y - 0.27, abs(cx[b] - cx[a]) - 0.04, 0.26, txt, size=10, color=INK, align=PP_ALIGN.CENTER, space=0)
+def note(i, x, w, txt, fill=LIGHT, line=GREY, color=INK):
+    box(s, x, ry(i) + 0.05, w, 0.4, fill=fill, line=line)
+    label(s, x + 0.03, ry(i) + 0.1, w - 0.06, 0.3, txt, size=10, bold=True, color=color, align=PP_ALIGN.CENTER, space=0)
+msg(0, 0, 1, "1 Query + category")
+note(1, 1.9, 1.7, "2 Other categories out", PINK, RED, RED)
+note(2, 1.9, 1.7, "3 Dense + BM25 search")
+msg(3, 1, 2, "4 Top 5 chunks", color=GREEN)
+note(4, 3.3, 2.0, "5 Quote, no repeats")
+note(5, 3.3, 2.0, "6 Cite, check numbers")
+msg(6, 2, 3, "7 Answer", color=AMBER)
+msg(7, 3, 0, "8 Allowed or blocked", color=GREEN)
+label(s, 6.85, 1.5, 5.9, 0.3, "SAME SAMPLE, REAL OUTPUT", size=11, bold=True, color=TEAL)
+box(s, 6.85, 1.85, 5.9, 1.6, fill=LIGHT)
+label(s, 6.95, 1.9, 5.7, 1.5, [("Query: damaged_delivery Damaged order, demands refund.", {"bold": True}),
+    "Category: Home & Kitchen (from the order's product)",
+    "Answer: damaged items must be reported within 30 days of delivery; later reports go to the manufacturer warranty.",
+    ("Cited: category-home-kitchen chunk 1  |  grounded: true", {"bold": True, "color": GREEN})], size=11, space=3)
+table(s, 6.85, 3.65, 5.9, [
+    ["24 questions", "hit@1", "recall@3", "Answers right"],
+    ["Dense only", "0.917", "0.979", "-"],
+    ["Hybrid fused", "0.875", "1.000", "-"],
+    ["Hybrid, no category", "-", "-", "22 / 24"],
+    ["Hybrid + order category", "-", "-", "24 / 24"],
+], [2.5, 1.0, 1.1, 1.3], size=11, row_h=0.34)
+label(s, 0.6, 5.95, 12.1, 0.4, "No LLM writes the answer, so a window or amount cannot be invented. Without the category: the 45-day apparel window.", size=12, bold=True, color=NAVY)
+runbar(s, 6.45, ["pytest tests/unit/test_policy_agent.py tests/unit/test_policy_index.py", "python scripts/run_retrieval_eval.py"])
 
 # 6 M5 + M6
 s = new_slide("M5 and M6: a pausable graph run by specialist agents", "Modules 5 and 6  |  workflow and multi-agent",
@@ -346,7 +370,7 @@ s = new_slide("Results: safety passes; the gaps are stated openly", "Evaluation,
     "Be upfront: intent accuracy of 0.72 is below a 0.8 target on noisy Twitter-style labels; it does not affect safety because the cap and escalation rules are deterministic. The right column is the continuous-improvement story: each row is something the first real run exposed.")
 table(s, 0.6, 1.7, 5.9, [
     ["Check", "Result"],
-    ["Unit tests (fresh clone)", "59 passed"],
+    ["Unit tests (fresh clone)", "67 passed"],
     ["M8 golden, stored", "20 / 20"],
     ["M8 golden, live Gemini", "20 / 20"],
     ["M4 recall@3, hybrid", "1.000"],
@@ -364,7 +388,7 @@ s = new_slide("Live demo in five minutes, and what to remember", "Run it yoursel
     "Order matters: tests for confidence, the strict real demo, the golden eval, then the API. Keep the .env file with the keys beside you; it is not in git. Backup: demo_milestones.py --offline runs with no network. Close on the design principle, then invite questions.")
 table(s, 0.6, 1.7, 12.1, [
     ["Step", "Command", "What the audience sees"],
-    ["1  Tests", "python -m pytest tests -q", "59 passed"],
+    ["1  Tests", "python -m pytest tests -q", "67 passed"],
     ["2  Milestones", "python demo_milestones.py --real", "M1 to M8 on live LLM, Qdrant Cloud, LangFuse"],
     ["3  Golden eval", "python scripts/run_m8_golden_eval.py --live", "20 of 20 with guardrail codes"],
     ["4  API", "uvicorn capstone.api:app, then demo_api_client.py", "/chat decisions for 7 cases"],
@@ -373,7 +397,7 @@ label(s, 0.6, 4.3, 12.1, 0.4, "Setup: copy .env.example to .env and add the Gemi
 box(s, 0.6, 4.85, 12.1, 1.95, fill=NAVY)
 label(s, 0.9, 4.95, 11.5, 1.8, [("Let the model read, let code decide.  A fooled model still cannot move money.", {"size": 17, "bold": True, "color": WHITE}),
     ("Measure, then fix.  Real runs found four weaknesses; each fix has a number.", {"size": 17, "bold": True, "color": WHITE}),
-    ("Every claim is runnable.  59 tests, 20 golden cases, a strict real-services demo.", {"size": 17, "bold": True, "color": WHITE}),
+    ("Every claim is runnable.  67 tests, 20 golden cases, a strict real-services demo.", {"size": 17, "bold": True, "color": WHITE}),
     ("github.com/abhraj786/iith-ai-capstone-shopsense", {"size": 12, "color": RGBColor(0xB8, 0xC7, 0xDA)})], space=6)
 
 assert len(prs.slides) == total_slides, len(prs.slides)
