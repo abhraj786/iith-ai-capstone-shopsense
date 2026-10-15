@@ -33,145 +33,88 @@ This repository currently implements **M1: Intake Parsing**, **M2: Safe Action P
 
 Secrets, virtual environments, caches, and runtime state are intentionally excluded from Git.
 
-## Examiner Quick Start
+## Evaluator Quick Start (live external services)
 
-These steps are for a fresh evaluator machine. Use Python 3.10 or newer.
+Everything below runs against the real services you configure: the LLM provider, **Qdrant Cloud** for the policy index, and **Langfuse** for traces. Needs Python 3.10 or newer. Total time is about 15 minutes.
+
+**1. Install**
 
 ```bash
 git clone https://github.com/abhraj786/iith-ai-capstone-shopsense.git
 cd iith-ai-capstone-shopsense
-
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate            # Windows PowerShell: .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-On Windows PowerShell, activate the environment with:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-Then run the full unit suite:
-
-```bash
-python -m pytest tests/unit -q
-```
-
-Expected current result:
-
-```text
-98 passed
-```
-
-Run the packaged M8 evaluator (stored tickets, then live LLM parsing), and the M4 retrieval comparison:
-
-```bash
-python scripts/run_m8_golden_eval.py
-python scripts/run_m8_golden_eval.py --live
-python scripts/run_retrieval_eval.py
-```
-
-Embeddings use Gemini when `GEMINI_API_KEY` is set, otherwise a hash fallback. Policy answers are filtered by the order's category. See `docs/architecture.md`.
-
-Expected current result:
-
-```text
-{
-  "total": 20,
-  "passed": 20,
-  "failed": 0,
-  "accuracy": 1.0
-}
-```
-
-Start the local browser workbench:
-
-```bash
-python -m capstone.workbench.app --port 8765
-```
-
-Open:
-
-```text
-http://127.0.0.1:8765
-```
-
-Start the FastAPI package:
-
-```bash
-uvicorn capstone.api:app --reload --port 8000
-```
-
-In a second terminal, run the command-line demo:
-
-```bash
-python demo_api_client.py
-```
-
-The default demo is deterministic and does not require an LLM key. It sends parsed M8 golden tickets to `/chat` and prints full JSON responses for legal refund, prompt injection, missing order, order tracking, product safety, over-cap refund, and warranty cases.
-
-For examiner-style real testing, add LLM, Qdrant Cloud, and Langfuse keys to `.env`, then run:
-
-```bash
-python demo_api_client.py --live
-```
-
-This sends normal English messages to `/chat`. The API runs the live M1 parser, then the downstream agents, tools, guardrails, traces, and response packaging.
-
-To inspect every milestone individually in one command:
-
-```bash
-python demo_milestones.py --real
-```
-
-This is the preferred grading command. It first checks that the LLM provider key, Qdrant Cloud key, and Langfuse key are present. Then it uses those external services end to end. It does not silently fall back to deterministic fixtures. If the provider or cloud service is unavailable, the command stops and prints the exact failed dependency.
-
-For a stable no-key smoke test only:
-
-```bash
-python demo_milestones.py --offline
-```
-
-## Environment And Cloud Configuration
-
-The project runs offline by default. To test cloud services or live LLM parsing, copy the template and fill in your own keys:
+**2. Add your keys.** Copy the template and fill in the values. `.env` is git-ignored and is never printed or logged.
 
 ```bash
 cp .env.example .env
 ```
 
-Never commit `.env`.
+| Service | Variables in `.env` | Notes |
+| --- | --- | --- |
+| LLM (any LiteLLM provider) | `CAPSTONE_LLM_MODEL` and the matching key, e.g. `GEMINI_API_KEY` (default model `gemini/gemini-flash-lite-latest`) or `GROQ_API_KEY` with `groq/openai/gpt-oss-20b` | The Gemini key also gives real embeddings (Gemini) for retrieval; without it a hash fallback is used |
+| Qdrant Cloud | `QDRANT_URL`, `QDRANT_API_KEY`, `QDRANT_COLLECTION` (default `shopsense_policy_m3`) | The policy collection is created on the first run if it does not exist |
+| Langfuse | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST` (for example `https://cloud.langfuse.com`) | `CAPSTONE_LANGFUSE_*` aliases also work |
 
-Useful variables:
+**3. Check the keys work** (prints OK or FAIL per service, never a key):
 
 ```bash
-# Live M1 LLM parsing through LiteLLM.
-# The project has been verified with Groq's free-tier-friendly model below.
-CAPSTONE_LLM_MODEL=groq/openai/gpt-oss-20b
-GROQ_API_KEY=<your-key>
-
-# Other LiteLLM providers also work if the matching key/model is configured.
-GEMINI_API_KEY=<optional-key>
-OPENAI_API_KEY=<optional-key>
-
-# Qdrant Cloud for M3/M4 policy index
-QDRANT_URL=<your-qdrant-url>
-QDRANT_API_KEY=<your-qdrant-api-key>
-QDRANT_COLLECTION=shopsense_policy_m3
-
-# Langfuse for M7/M8 trace forwarding.
-# Either standard Langfuse names or CAPSTONE_ aliases work.
-LANGFUSE_PUBLIC_KEY=<your-public-key>
-LANGFUSE_SECRET_KEY=<your-secret-key>
-LANGFUSE_HOST=https://cloud.langfuse.com
-CAPSTONE_LANGFUSE_PUBLIC_KEY=<your-public-key>
-CAPSTONE_LANGFUSE_SECRET_KEY=<your-secret-key>
-CAPSTONE_LANGFUSE_HOST=https://cloud.langfuse.com
+python -m scripts.check_setup
 ```
 
-`python demo_milestones.py --real` is strict: Qdrant Cloud must be reachable, the live LLM provider must respond, and Langfuse keys must be configured. `python demo_milestones.py --offline` is intentionally deterministic for local smoke checks. Runtime traces are always written locally under `runtime/traces` for auditability; when Langfuse keys are present, the same trace events are also forwarded to Langfuse.
+**4. Run every milestone, M1 to M8, against the live services:**
+
+```bash
+python demo_milestones.py --real
+```
+
+This is strict: it stops with the name of any missing key or unreachable service, and never falls back to fixtures. It runs intake (M1), action planning (M2), memory and policy index (M3), policy RAG (M4), the LangGraph workflow with a human pause (M5), the multi-agent team over MCP (M6), traces and reliability (M7), and the `/chat` API path with guardrails (M8). Traces appear in your Langfuse project.
+
+**5. Run the evaluations** (the policy index is the Qdrant Cloud collection whenever the Qdrant keys are set):
+
+```bash
+python -m pytest tests -q                                  # 98 passed (offline by design, never touches the cloud)
+python scripts/run_m8_golden_eval.py --live                # 20 of 20: live LLM parsing, then agents and guardrails
+python -m scripts.run_m8_component_eval --judge --langfuse # 20 component items, LLM judge, Langfuse experiment
+```
+
+**6. Call the API** (it uses the same live LLM, Qdrant Cloud and Langfuse):
+
+```bash
+uvicorn capstone.api:app --port 8000          # terminal 1
+python demo_api_client.py --live              # terminal 2: English messages in, full JSON out
+```
+
+Or import `docs/postman/shopsense_chat.postman_collection.json` into Postman (tickets A, B, C, and an empty text that returns 422). To reach it from another machine, expose the port with a tunnel such as ngrok and set the collection's `base_url` to that address.
+
+Why each command exists is in [docs/architecture.md](docs/architecture.md). With no keys at all, every command above still runs on a local in-memory index (the unit tests always do), so the project can be smoke-tested without accounts: `python demo_milestones.py --offline`.
+
+If your LLM provider returns a temporary capacity error, retry or point `CAPSTONE_LLM_MODEL` at another model your account can use.
+
+## Environment Reference
+
+Full list of variables. Never commit `.env`.
+
+```bash
+CAPSTONE_LLM_MODEL=gemini/gemini-flash-lite-latest   # or groq/openai/gpt-oss-20b, openai/..., anthropic/...
+GEMINI_API_KEY=<key>        # also used for embeddings
+GROQ_API_KEY=<key>          # only if you use a groq/ model
+OPENAI_API_KEY=<key>        # only if you use an openai/ model
+
+QDRANT_URL=<your-cluster-url>
+QDRANT_API_KEY=<your-qdrant-key>
+QDRANT_COLLECTION=shopsense_policy_m3
+
+LANGFUSE_PUBLIC_KEY=<key>
+LANGFUSE_SECRET_KEY=<key>
+LANGFUSE_HOST=https://cloud.langfuse.com
+```
+
+Runtime traces are always also written locally under `runtime/traces` as an audit copy. Setting `CAPSTONE_QDRANT=memory` forces a throwaway in-memory index even when Qdrant keys are present (the unit tests do this).
 
 ## Milestone Verification Matrix
 
@@ -267,7 +210,7 @@ QDRANT_API_KEY=...
 QDRANT_COLLECTION=shopsense_policy_m3
 ```
 
-For strict examiner testing of cloud behavior, run `python demo_milestones.py --real`; that command requires Qdrant Cloud and does not fall back. The standalone index helper and UI may use local Qdrant for no-key development.
+For strict examiner testing of cloud behavior, run `python demo_milestones.py --real`; that command requires Qdrant Cloud and does not fall back. The standalone index helper may use local Qdrant for no-key development.
 
 Run M4 groundedness evaluation:
 

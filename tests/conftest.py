@@ -5,3 +5,4 @@ import os
 os.environ["CAPSTONE_EMBEDDINGS"] = "hash"
 os.environ["CAPSTONE_RERANK"] = "off"
 os.environ["CAPSTONE_TOOL_TRANSPORT"] = "python"  # MCP is the app default; unit tests stay in-process and fast
+os.environ["CAPSTONE_QDRANT"] = "memory"  # never touch a cloud cluster from unit tests, even if .env has keys

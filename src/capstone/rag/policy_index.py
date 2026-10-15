@@ -115,6 +115,25 @@ class PolicyIndex:
                 )
         return cls.local(index_dir=index_dir)
 
+    @classmethod
+    def for_runtime(cls) -> "PolicyIndex":
+        """Index used by the API and the evaluation scripts.
+
+        With QDRANT_URL and QDRANT_API_KEY set, this is the Qdrant Cloud collection and an unreachable
+        cluster is an error (no silent fallback). Without keys, or with CAPSTONE_QDRANT=memory (unit
+        tests), it is a throwaway in-memory index so the repo still runs with no accounts.
+        """
+        settings = get_settings()
+        root = PROJECT_ROOT / settings.data_root / settings.domain
+        url = os.getenv("QDRANT_URL") or os.getenv("CAPSTONE_QDRANT_URL")
+        key = os.getenv("QDRANT_API_KEY") or os.getenv("CAPSTONE_QDRANT_API_KEY")
+        if os.getenv("CAPSTONE_QDRANT", "").lower() == "memory" or not (url and key):
+            return cls(QdrantClient(":memory:"), root, storage_label="memory")
+        collection = os.getenv("QDRANT_COLLECTION") or os.getenv("CAPSTONE_QDRANT_COLLECTION") or COLLECTION_NAME
+        client = QdrantClient(url=url, api_key=key)
+        client.get_collections()  # raises with the real reason if the URL or key is wrong
+        return cls(client, root, collection, "cloud")
+
     def load_manifest(self) -> list[dict]:
         return json.loads((self.corpus_root / "corpus" / "index.json").read_text())
 

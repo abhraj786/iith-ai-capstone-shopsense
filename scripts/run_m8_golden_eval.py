@@ -8,7 +8,6 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
-from qdrant_client import QdrantClient
 
 from capstone.agents.action_agent import plan_action
 from capstone.agents.intake_agent import parse_ticket
@@ -37,7 +36,7 @@ def main() -> None:
 
     cases = json.loads(args.cases.read_text())
     settings = get_settings()
-    policy_index = PolicyIndex(QdrantClient(":memory:"), PROJECT_ROOT / settings.data_root / settings.domain)
+    policy_index = PolicyIndex.for_runtime()
     if not policy_index.client.collection_exists(policy_index.collection_name):
         policy_index.build(recreate=False)
     policy_agent = PolicyAgent(HybridPolicyRetriever(policy_index))

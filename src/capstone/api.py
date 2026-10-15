@@ -7,7 +7,6 @@ from typing import Any
 
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
-from qdrant_client import QdrantClient
 
 from capstone.agents.action_agent import plan_action
 from capstone.agents.intake_agent import apply_contact_count
@@ -162,9 +161,9 @@ def _policy_query(ticket: SupportTicket) -> str:
 
 
 def _local_policy_agent() -> PolicyAgent:
-    settings = get_settings()
-    index = PolicyIndex(QdrantClient(":memory:"), PROJECT_ROOT / settings.data_root / settings.domain)
-    index.build(recreate=False)
+    index = PolicyIndex.for_runtime()
+    if not index.client.collection_exists(index.collection_name):
+        index.build(recreate=False)
     return PolicyAgent(HybridPolicyRetriever(index))
 
 

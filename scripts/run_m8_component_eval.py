@@ -14,7 +14,6 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
-from qdrant_client import QdrantClient
 
 from capstone.agents.action_agent import plan_action
 from capstone.agents.policy_agent import PolicyAgent
@@ -52,8 +51,9 @@ def build(args) -> dict:
     cases = {c["case_id"]: c for c in json.loads((DATA / "golden_m8_tickets.json").read_text())}
     items = json.loads(args.items.read_text())
     settings = get_settings()
-    index = PolicyIndex(QdrantClient(":memory:"), PROJECT_ROOT / settings.data_root / settings.domain)
-    index.build(recreate=False)
+    index = PolicyIndex.for_runtime()
+    if not index.client.collection_exists(index.collection_name):
+        index.build(recreate=False)
     policy_agent = PolicyAgent(HybridPolicyRetriever(index))
     client = None
     if args.judge:
