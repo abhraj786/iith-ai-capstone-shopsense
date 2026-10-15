@@ -133,7 +133,7 @@ s.notes_slide.notes_text_frame.text = "Open with the promise: routine tickets re
 
 # 3 Architecture
 s = new_slide("One pipeline: parse, look up, ground, plan, then gate", "End-to-end architecture",
-              "Walk left to right. The bottom band wraps everything: LangGraph orchestration, tracing, and the API. The red gate is the deterministic guardrail layer. Unit tests per module: M1 13, M2 22, M3 5, M4 2, M5 6, M6 11, M7 3, M8 3.")
+              "Walk left to right. The bottom band wraps everything: LangGraph orchestration, tracing, and the API. The red gate is the deterministic guardrail layer. Unit tests per module: M1 13, M2 22, M3 5, M4 2, M5 6, M6 13, M7 3, M8 3.")
 y = 2.0
 xs = [0.5, 2.85, 5.2, 7.55]
 node(s, xs[0], y, 2.0, 1.1, "Customer message", "chat / email text", fill=GREY)
@@ -385,7 +385,7 @@ table(s, 6.85, 4.08, 5.9, [
 ], [3.5, 2.4], size=10.5, row_h=0.28)
 box(s, 0.6, 5.7, 12.15, 0.65, fill=LIGHT, line=GREY)
 label(s, 0.7, 5.74, 11.95, 0.6, [("M6 in one line: ", {"bold": True, "color": NAVY}),
-    "five stages (Triage, Memory, Policy RAG, Order-Actions, Escalation Reviewer), each limited to its own board keys. The reviewer re-checks the plan before any write and can only send it to a human. Tools run over an MCP server: same chat and email result, same queue id. 11 tests."], size=11, space=0)
+    "five stages (Triage, Memory, Policy RAG, Order-Actions, Escalation Reviewer), each limited to its own board keys. The reviewer re-checks the plan before any write and can only send it to a human. Every tool call goes through one gateway, in-process or MCP (set by CAPSTONE_TOOL_TRANSPORT): same chat and email result. 13 tests."], size=11, space=0)
 runbar(s, 6.45, ["pytest tests/unit/test_workflow.py", "pytest tests/unit/test_mcp_tools.py tests/unit/test_multi_agent_team.py"])
 
 # 7 M7 + M8
@@ -406,7 +406,7 @@ s = new_slide("Results: safety passes; the gaps are stated openly", "Evaluation,
     "Be upfront: intent accuracy of 0.72 is below a 0.8 target on noisy Twitter-style labels; it does not affect safety because the cap and escalation rules are deterministic. The right column is the continuous-improvement story: each row is something the first real run exposed.")
 table(s, 0.6, 1.7, 5.9, [
     ["Check", "Result"],
-    ["Unit tests (fresh clone)", "78 passed"],
+    ["Unit tests (fresh clone)", "80 passed"],
     ["M8 golden, stored", "20 / 20"],
     ["M8 golden, live Gemini", "20 / 20"],
     ["M4 recall@3, hybrid", "1.000"],
@@ -424,7 +424,7 @@ s = new_slide("Live demo in five minutes, and what to remember", "Run it yoursel
     "Order matters: tests for confidence, the strict real demo, the golden eval, then the API. Keep the .env file with the keys beside you; it is not in git. Backup: demo_milestones.py --offline runs with no network. Close on the design principle, then invite questions.")
 table(s, 0.6, 1.7, 12.1, [
     ["Step", "Command", "What the audience sees"],
-    ["1  Tests", "python -m pytest tests -q", "78 passed"],
+    ["1  Tests", "python -m pytest tests -q", "80 passed"],
     ["2  Milestones", "python demo_milestones.py --real", "M1 to M8 on live LLM, Qdrant Cloud, LangFuse"],
     ["3  Golden eval", "python scripts/run_m8_golden_eval.py --live", "20 of 20 with guardrail codes"],
     ["4  API", "uvicorn capstone.api:app, then demo_api_client.py", "/chat decisions for 7 cases"],
@@ -433,7 +433,7 @@ label(s, 0.6, 4.3, 12.1, 0.4, "Setup: copy .env.example to .env and add the Gemi
 box(s, 0.6, 4.85, 12.1, 1.95, fill=NAVY)
 label(s, 0.9, 4.95, 11.5, 1.8, [("Let the model read, let code decide.  A fooled model still cannot move money.", {"size": 17, "bold": True, "color": WHITE}),
     ("Measure, then fix.  Real runs found four weaknesses; each fix has a number.", {"size": 17, "bold": True, "color": WHITE}),
-    ("Every claim is runnable.  78 tests, 20 golden cases, a strict real-services demo.", {"size": 17, "bold": True, "color": WHITE}),
+    ("Every claim is runnable.  80 tests, 20 golden cases, a strict real-services demo.", {"size": 17, "bold": True, "color": WHITE}),
     ("github.com/abhraj786/iith-ai-capstone-shopsense", {"size": 12, "color": RGBColor(0xB8, 0xC7, 0xDA)})], space=6)
 
 assert len(prs.slides) == total_slides, len(prs.slides)

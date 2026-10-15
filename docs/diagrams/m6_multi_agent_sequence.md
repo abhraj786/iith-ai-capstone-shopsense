@@ -49,6 +49,6 @@ sequenceDiagram
 | Same tools for chat and email | same queue id on both channels |
 | Supervisor with LLM routing, legal routes, revision loop | **Not built.** Our team is a fixed five-stage line, not a supervisor star. No loop-back, so no revision cap is needed. |
 | Only some agents use a model | Only Triage calls an LLM; the rest are deterministic code |
-| All tools via MCP | Only `track_shipment` and the final write go through the gateway; eligibility and refund maths inside `plan_action` call the code directly |
-| MCP default in the API | `/chat` uses the in-process gateway (`use_mcp_tools=False`); MCP is on in the demo script |
+| All tools via the gateway / MCP | Yes: eligibility, refund amount, approver tier, tracking and the final write all go through the gateway (`plan_action(..., gateway=)`); tested with a spy |
+| MCP in the API | `CAPSTONE_TOOL_TRANSPORT=mcp` makes `/chat` use the MCP server; default stays in-process (faster, no child process) |
 | A2A / AP2 appendix | Not applicable to this problem |

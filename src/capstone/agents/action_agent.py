@@ -86,10 +86,27 @@ def _queue_human(repo: Repository, customer_ref: str, order_ref: str | None,
     return proposal
 
 
+def _unwrap(result: dict) -> dict:
+    """Turn a tool-gateway reply ({ok, result|error}) back into a value or a ToolError."""
+    if result.get("ok"):
+        return result["result"]
+    error = result.get("error") or {}
+    raise ToolError(error.get("error", "tool_error"), error.get("message", "tool call failed"))
+
+
 def _approval_or_eligibility_gate(repo: Repository, customer_ref: str, order_ref: str,
-                                  reason_code: str, today: date) -> ActionProposal | None:
+                                  reason_code: str, today: date, gateway=None) -> ActionProposal | None:
+    """With a `gateway` (in-process or MCP) the policy calculators run through it; else directly."""
+    if gateway is None:
+        check = lambda: calculators.check_eligibility(repo, customer_ref, order_ref, reason_code, today)
+        refund = lambda: calculators.calculate_refund(repo, customer_ref, order_ref, reason_code)
+        approver = lambda amount: calculators.required_approver(repo, customer_ref, amount)
+    else:
+        check = lambda: _unwrap(gateway.check_eligibility(customer_ref, order_ref, reason_code, today.isoformat()))
+        refund = lambda: _unwrap(gateway.calculate_refund(customer_ref, order_ref, reason_code))
+        approver = lambda amount: _unwrap(gateway.required_approver(customer_ref, amount))
     try:
-        eligibility = calculators.check_eligibility(repo, customer_ref, order_ref, reason_code, today)
+        eligibility = check()
         if eligibility.get("needs_dispute_investigation"):
             return ActionProposal(
                 recommended_action=RecommendedAction.human_review,
@@ -111,8 +128,8 @@ def _approval_or_eligibility_gate(repo: Repository, customer_ref: str, order_ref
                            "trigger": trigger, "note": eligibility["why"]},
                 explanation=f"Policy does not allow automatic action: {eligibility['why']}",
             )
-        amount = calculators.calculate_refund(repo, customer_ref, order_ref, reason_code)["refund_inr"]
-        needed = calculators.required_approver(repo, customer_ref, amount)
+        amount = refund()["refund_inr"]
+        needed = approver(amount)
         if needed["is_human"] or needed["account_restricted"]:
             trigger = "account_under_review" if needed["account_restricted"] else "refund_above_auto_cap"
             return ActionProposal(
@@ -136,7 +153,7 @@ def _approval_or_eligibility_gate(repo: Repository, customer_ref: str, order_ref
 
 
 def plan_action(repo: Repository, ticket: SupportTicket, customer_ref: str,
-                today: date, execute: bool = False) -> ActionProposal:
+                today: date, execute: bool = False, gateway=None) -> ActionProposal:
     """Return the safest next action for a parsed ticket.
 
     Read-only lookups may be performed while planning. Refund/replacement/queue writes
@@ -166,7 +183,7 @@ def plan_action(repo: Repository, ticket: SupportTicket, customer_ref: str,
 
     if ticket.issue_type in REPLACEMENT_REASON_BY_ISSUE:
         reason = REPLACEMENT_REASON_BY_ISSUE[ticket.issue_type]
-        if gate := _approval_or_eligibility_gate(repo, customer_ref, ticket.order_ref, reason, today):
+        if gate := _approval_or_eligibility_gate(repo, customer_ref, ticket.order_ref, reason, today, gateway):
             return gate
         proposal = ActionProposal(
             recommended_action=RecommendedAction.replacement,
@@ -186,7 +203,7 @@ def plan_action(repo: Repository, ticket: SupportTicket, customer_ref: str,
 
     if ticket.issue_type in REFUND_REASON_BY_ISSUE:
         reason = REFUND_REASON_BY_ISSUE[ticket.issue_type]
-        if gate := _approval_or_eligibility_gate(repo, customer_ref, ticket.order_ref, reason, today):
+        if gate := _approval_or_eligibility_gate(repo, customer_ref, ticket.order_ref, reason, today, gateway):
             return gate
         proposal = ActionProposal(
             recommended_action=RecommendedAction.refund,

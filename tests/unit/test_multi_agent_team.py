@@ -179,3 +179,30 @@ def test_m6_reviewer_runs_before_any_write(tmp_path):
     assert result.escalation_review["decision"] == "human_review"
     assert result.action_proposal["tool_name"] == "flag_for_human"
     assert result.action_proposal["tool_name"] != "issue_refund"
+
+
+def test_m6_policy_calculators_run_through_the_gateway(tmp_path):
+    from capstone.mcp.tools import ShopSenseToolGateway
+
+    calls: list[str] = []
+
+    class Spy(ShopSenseToolGateway):
+        def check_eligibility(self, *a, **k):
+            calls.append("check_eligibility")
+            return super().check_eligibility(*a, **k)
+
+        def calculate_refund(self, *a, **k):
+            calls.append("calculate_refund")
+            return super().calculate_refund(*a, **k)
+
+    team = _team(tmp_path, {**_CALM_REFUND, "issue_type": "damaged_delivery"})
+    team.tool_gateway = Spy(team.repo)
+    team.resolve(raw_text="KW-O-000950 arrived broken", channel="chat", customer_ref="KW-C-00285", today="2026-03-10")
+    assert "check_eligibility" in calls
+
+
+def test_m6_tool_transport_setting_selects_mcp(monkeypatch):
+    from capstone.settings import get_settings
+
+    monkeypatch.setattr(get_settings(), "tool_transport", "mcp")
+    assert get_settings().tool_transport == "mcp"

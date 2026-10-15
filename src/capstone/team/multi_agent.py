@@ -76,11 +76,13 @@ class MultiAgentTeam:
     policy_index: PolicyIndex | None = None
     policy_agent: PolicyAgent | None = None
     tool_gateway: ShopSenseToolGateway | MCPShopSenseToolGateway | None = None
-    use_mcp_tools: bool = False
+    use_mcp_tools: bool | None = None  # None: follow CAPSTONE_TOOL_TRANSPORT
     reliable_tools: bool = True
     tracer: TraceRecorder | None = None
 
     def __post_init__(self) -> None:
+        if self.use_mcp_tools is None:
+            self.use_mcp_tools = get_settings().tool_transport == "mcp"
         if self.policy_index is None:
             self.policy_index = PolicyIndex.from_settings()
             if not self.policy_index.client.collection_exists(self.policy_index.collection_name):
@@ -158,7 +160,8 @@ class MultiAgentTeam:
 
         # Order-Actions only PLANS here. Nothing is written until the reviewer has answered.
         with trace.span("Order-Actions Agent", metadata={"transport": self.tool_transport}) as span:
-            proposal = plan_action(self.repo, board["ticket"], customer_ref, run_date, execute=False)
+            proposal = plan_action(self.repo, board["ticket"], customer_ref, run_date, execute=False,
+                                   gateway=self.tool_gateway)
             if proposal.tool_name == "track_shipment":  # read-only, safe before review
                 self._apply_tool_result(proposal, customer_ref, board["ticket"].order_ref, today, False, trace)
             proposal, guardrails = apply_guardrails(board["ticket"], proposal, board["policy_answer"])

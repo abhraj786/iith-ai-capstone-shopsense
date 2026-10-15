@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     langfuse_public_key: str | None = None
     langfuse_secret_key: str | None = None
     langfuse_host: str | None = None
+    tool_transport: str = "python"  # "mcp": every order tool call goes through the MCP server
     tool_retry_attempts: int = 2
     tool_circuit_failure_threshold: int = 2
     tool_circuit_cooldown_s: float = 30.0

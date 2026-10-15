@@ -57,7 +57,7 @@ def chat(request: ChatRequest) -> ChatResponse:
     if request.support_ticket is not None:
         return _chat_from_ticket(request)
 
-    result = MultiAgentTeam(use_mcp_tools=False).resolve(
+    result = MultiAgentTeam().resolve(
         raw_text=request.raw_text,
         channel=request.channel,
         customer_ref=request.customer_ref,
