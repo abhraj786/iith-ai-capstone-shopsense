@@ -460,8 +460,8 @@ label(s, 7.6, 5.72, 5.15, 0.7, [("Revision loop, unit-tested with a forced failu
 runbar(s, 6.45, ["pytest tests/unit/test_multi_agent_team.py tests/unit/test_mcp_tools.py"])
 
 # 9 M7 tracing + reliability
-s = new_slide("M7: every step is traced, and failures end at a person", "Module 7  |  tracing and reliability, ticket B (plain tracking)",
-    "M7 story with ticket B: the same ticket now leaves a trace. Open Langfuse: seven spans, Triage and Supervisor shown as generations with model, tokens and cost (about 0.05 cents for the ticket). Reliability: the tool call goes over MCP by default; if the MCP server cannot start, the same call runs in process and the result says so. Retries only cover transient errors, malformed data goes straight to the human queue, and the breaker lets exactly one trial call through after its cooldown. If the language model itself is down, /chat answers with a safe human hand-off instead of an error. Honest finding: flushing Langfuse after every ticket added about 200 ms, so it is now batched in the background (tracing costs about 1.5 ms). Seeded numbers: 114 of 200 clean at baseline, 179 clean plus 21 sent to a human after hardening. M8: the golden set is deliberately adversarial: five injection variants, cross-customer orders, safety, repeat contact; stored and live runs pass 20 of 20. Detail: docs/diagrams/m7_observability_reliability_sequence.md.")
+s = new_slide("M7: every step is traced, and failures end at a person", "Module 7  |  tracing and reliability, tickets A, B, C",
+    "M7 story: every ticket now leaves a trace, and the three tickets leave different ones. The table is from one live run over MCP; click an ID to open the trace in Langfuse. A (hostile) has 9 spans because the policy lookup runs, takes 7.6 s and costs about $0.0008. B (plain tracking) has 7 spans, goes fast_track, calls track_shipment over MCP in about 0.27 s, and costs about $0.00075. C (court threat) has 7 spans, skips policy and the tool, goes escalate_now to a person, and costs about $0.00068. Triage and Supervisor show as generations with model, tokens and cost; everything else is tiny because it is code (under 2 ms). Reliability: the tool call goes over MCP by default; if the MCP server cannot start, the same call runs in process and the result says so. Retries only cover transient errors, malformed data goes straight to the human queue, and the breaker lets exactly one trial call through after its cooldown. If the language model itself is down, /chat answers with a safe human hand-off instead of an error. Honest finding: flushing Langfuse after every ticket added about 200 ms, so it is now batched in the background (tracing costs about 1.3 ms). Seeded numbers: 114 of 200 clean at baseline, 179 clean plus 21 sent to a human after hardening. M8: the golden set is deliberately adversarial: five injection variants, cross-customer orders, safety, repeat contact; stored and live runs pass 20 of 20. Detail: docs/diagrams/m7_observability_reliability_sequence.md.")
 cx = [0.85, 2.05, 3.25, 4.45, 5.65, 6.85]
 names = [("Team", "LLM + trace", NAVY), ("Gateway", "retry, breaker", RED), ("MCP", "server", AMBER), ("Python", "tools", NAVY), ("Human", "queue", GREEN), ("Langfuse", "traces", TEAL)]
 for x, (n, sub, c) in zip(cx, names):
@@ -485,22 +485,30 @@ note(3, 1.45, 3.4, "4 Result says failover: python", RGBColor(0xFD, 0xF0, 0xD7),
 msg(4, 1, 4, "5 Still failing or breaker open", color=RED)
 msg(5, 0, 5, "6 Spans, tokens, cost (batched)", color=TEAL)
 note(6, 0.3, 3.9, "7 LLM down: /chat queues the case", PINK, RED, RED)
-label(s, 7.6, 1.5, 5.15, 0.3, "TICKET B, LIVE (GEMINI, MCP DEFAULT)", size=11, bold=True, color=TEAL)
-box(s, 7.6, 1.85, 5.15, 1.75, fill=RGBColor(0xE6, 0xF4, 0xEA), line=GREEN)
-label(s, 7.7, 1.88, 4.95, 1.7, [("What the run showed", {"bold": True, "color": GREEN}),
-    "7 spans reached Langfuse. Triage and Supervisor are generations: 730 / 128 tokens ($0.00054) and 287 / 46 ($0.00020).",
-    "MCP unreachable: the ticket still resolved, the result says failover. LLM unavailable: /chat answered 200 and queued the case (KW-HQ-00003).",
-    "Tickets A and C already end at a person (over the cap, legal threat), so an outage changes nothing for them. With the model down, /chat queues any ticket, B included."], size=10, space=2)
-label(s, 7.6, 3.7, 5.15, 0.3, "WHAT M7 GUARANTEES", size=10, bold=True, color=TEAL)
-table(s, 7.6, 3.98, 5.15, [
+label(s, 7.6, 1.45, 5.15, 0.3, "TICKETS A, B, C IN LANGFUSE (LIVE, MCP; CLICK AN ID)", size=10.5, bold=True, color=TEAL)
+LF = "https://cloud.langfuse.com/project/cmuqxwv4s01zvad0czaq5rtkl/traces/"
+trace_rows = [("A  62f3393f", "62f3393fdb07d4b3b8eb816982ea4332"), ("B  697de7ea", "697de7ea21f0469aabf1c2cdc7a95fac"), ("C  72b4b6c3", "72b4b6c3e016bcbfa5654d868efbf72a")]
+tt = table(s, 7.6, 1.73, 5.15, [
+    ["Ticket / trace", "Route", "Spans", "Tokens in/out", "Cost", "Time"],
+    ["A  62f3393f", "full, human", "9", "1079 / 193", "$0.00081", "7.6 s"],
+    ["B  697de7ea", "fast_track", "7", "1029 / 177", "$0.00075", "4.1 s"],
+    ["C  72b4b6c3", "escalate_now", "7", "1045 / 145", "$0.00068", "4.4 s"],
+], [1.15, 1.05, 0.5, 1.0, 0.75, 0.7], size=9, row_h=0.27)
+for r, (label_txt, tid) in enumerate(trace_rows, start=1):
+    tt.cell(r, 0).text_frame.paragraphs[0].runs[0].hyperlink.address = LF + tid
+box(s, 7.6, 2.9, 5.15, 1.05, fill=RGBColor(0xE6, 0xF4, 0xEA), line=GREEN)
+label(s, 7.7, 2.92, 4.95, 1.0, [("Failure checks", {"bold": True, "color": GREEN}),
+    "MCP unreachable: ticket B still resolved, the result says failover. LLM unavailable: /chat answered 200 and queued the case (KW-HQ-00003).",
+    "A and C already end at a person, so an outage changes nothing for them."], size=9.5, space=1)
+label(s, 7.6, 4.02, 5.15, 0.3, "WHAT M7 GUARANTEES", size=10, bold=True, color=TEAL)
+table(s, 7.6, 4.28, 5.15, [
     ["Guarantee", "How"],
     ["Retries only for transient errors", "backoff; malformed goes to a human"],
     ["Breaker", "half-open: one trial call"],
     ["200 seeded calls", "57% clean, then 179 + 21 to a human"],
     ["Dead tool", "3 real calls, 7 short-circuited"],
-    ["Tracing cost", "+1.3 ms per ticket"],
-], [2.45, 2.7], size=10, row_h=0.28)
-label(s, 7.6, 5.75, 5.15, 0.55, "Found by measuring: a Langfuse flush per ticket cost 200 ms. Now batched.", size=11, bold=True, color=NAVY)
+    ["Tracing cost", "+1.3 ms per ticket (a flush per ticket cost 200 ms, now batched)"],
+], [2.2, 2.95], size=9.5, row_h=0.27)
 runbar(s, 6.45, ["pytest tests/unit/test_reliability.py", "python scripts/run_reliability_benchmark.py"])
 
 # 10 Results, limits, demo
