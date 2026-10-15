@@ -176,7 +176,7 @@ s.notes_slide.notes_text_frame.text = "Open with the promise: routine tickets re
 s = new_slide("One pipeline: parse, look up, ground, plan, then gate", "End-to-end architecture",
               "Walk left to right in one line. The chevron strip under it is the build order, M1 to M8; the last four wrap everything: LangGraph pause and resume, the supervised team, tracing, and the API with evaluation. The red gate is the deterministic guardrail layer. 98 unit tests in total, 11 of them for M8.")
 y, bw, step = 1.75, 1.5, 1.8
-steps = [("Customer message", "chat / email text", GREY, WHITE), ("M1 Intake", "LLM to SupportTicket", NAVY, WHITE),
+steps = [("Customer utterance", "chat / email text", GREY, WHITE), ("M1 Intake", "LLM to SupportTicket", NAVY, WHITE),
          ("M3 Memory", "history, repeat count", NAVY, WHITE), ("M4 Policy RAG", "Gemini embeddings + BM25", NAVY, WHITE),
          ("M2 Action planner", "tools via one gateway", TEAL, WHITE), ("Guardrail gate", "cap, signals, injection", RED, WHITE)]
 for i, (t, sub, fill, fg) in enumerate(steps):
@@ -198,9 +198,9 @@ for i, ((m, t), sub) in enumerate(zip(miles, subs)):
     ch.text_frame.margin_left = ch.text_frame.margin_right = 0
     text(ch.text_frame, f"{m}  {t}", size=11, bold=True, color=WHITE, align=PP_ALIGN.CENTER, space=0)
     label(s, cx0 + 0.1, 4.3, 1.45, 0.25, sub, size=9, color=GREY, align=PP_ALIGN.CENTER, space=0)
-label(s, 0.5, 4.65, 12.3, 0.3, "THREE TICKETS WE FOLLOW, SAME CODE FOR ALL  (bar colour = where the ticket ends up)", size=10, bold=True, color=TEAL)
+label(s, 0.5, 4.65, 12.3, 0.3, "THREE UTTERANCES WE FOLLOW, SAME CODE FOR ALL  (bar colour = where it ends up)", size=10, bold=True, color=TEAL)
 table(s, 0.6, 4.98, 12.2, [
-    ["Ticket", "M1 reads", "M2 plans, M4 grounds", "M5 workflow", "M6 route"],
+    ["Utterance", "M1 reads", "M2 plans, M4 grounds", "M5 workflow", "M6 route"],
     ["A  Hostile, Rs 12,999 (KW-O-000000)", "angry, injection, above cap", "human: refund_above_auto_cap", "pauses for approval", "full, then human"],
     ["B  Plain tracking (KW-O-000010)", "calm, track_order, no signals", "track_shipment, no human", "auto-resolves", "fast_track, no policy"],
     ["C  Court threat (KW-O-000950)", "angry, legal_or_regulatory", "human: legal_or_regulatory", "pauses for approval", "escalate_now, human"],
