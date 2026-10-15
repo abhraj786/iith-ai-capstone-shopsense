@@ -440,21 +440,51 @@ table(s, 7.6, 3.98, 5.15, [
 label(s, 7.6, 5.75, 5.15, 0.55, "Triage and the Supervisor call an LLM; the other four stages are code.", size=11, bold=True, color=NAVY)
 runbar(s, 6.45, ["pytest tests/unit/test_multi_agent_team.py tests/unit/test_mcp_tools.py"])
 
-# 7 M7 + M8
-s = new_slide("M7 and M8: M7 verified, M8 being finished next", "Modules 7 and 8  |  M7 checked live, M8 still to be checked against its lab",
+# 9 M7 tracing + reliability
+s = new_slide("M7: every step is traced, and failures end at a person", "Module 7  |  tracing and reliability, ticket B (plain tracking)",
     "M7 story with ticket B: the same ticket now leaves a trace. Open Langfuse: seven spans, Triage and Supervisor shown as generations with model, tokens and cost (about 0.05 cents for the ticket). Reliability: the tool call goes over MCP by default; if the MCP server cannot start, the same call runs in process and the result says so. Retries only cover transient errors, malformed data goes straight to the human queue, and the breaker lets exactly one trial call through after its cooldown. If the language model itself is down, /chat answers with a safe human hand-off instead of an error. Honest finding: flushing Langfuse after every ticket added about 200 ms, so it is now batched in the background (tracing costs about 1.5 ms). Seeded numbers: 114 of 200 clean at baseline, 179 clean plus 21 sent to a human after hardening. M8: the golden set is deliberately adversarial: five injection variants, cross-customer orders, safety, repeat contact; stored and live runs pass 20 of 20. Detail: docs/diagrams/m7_observability_reliability_sequence.md.")
-column(s, 0.6, W, "M7", "Tracing + reliability", [
-    ("What", ["- See every agent, tool and LLM step; survive flaky tools and a dead model"], 0.5),
-    ("How", ["- LangFuse + local JSONL; Triage and Supervisor are generation spans (tokens, cost)", "- Tools: MCP first, Python failover; retry, half-open breaker, human-queue fallback. LLM down: human hand-off"], 1.25),
-    ("Proof", ["- 200 seeded calls: 57% clean, then 179 clean + 21 to a human = 100% handled", "- Dead tool: 3 real calls, 7 short-circuited. Tracing +1.5 ms (per-ticket flush was +200 ms, fixed)"], 1.0)])
-column(s, 6.75, W, "M8", "Golden eval + FastAPI", [
-    ("What", ["- 20-case golden set over 5 customers; /chat and /health API"], 0.5),
-    ("How", ["- Each case states action, human-or-not, guardrail codes, forbidden actions", "- --live parses raw text with the real LLM"], 0.85),
-    ("Proof", ["- 20 of 20 stored, 20 of 20 live (Gemini)", "- Local uvicorn run verified; blocked tickets return 200 + human review"], 0.85)])
-runbar(s, 6.45, ["pytest tests/unit/test_reliability.py", "python scripts/run_reliability_benchmark.py", "python scripts/run_m8_golden_eval.py --live"])
+cx = [0.85, 2.05, 3.25, 4.45, 5.65, 6.85]
+names = [("Team", "LLM + trace", NAVY), ("Gateway", "retry, breaker", RED), ("MCP", "server", AMBER), ("Python", "tools", NAVY), ("Human", "queue", GREEN), ("Langfuse", "traces", TEAL)]
+for x, (n, sub, c) in zip(cx, names):
+    node(s, x - 0.57, 1.5, 1.14, 0.8, n, sub, fill=c, fg=INK if n == "MCP" else WHITE)
+    ln = s.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, Inches(x), Inches(2.3), Inches(x), Inches(6.3))
+    ln.line.color.rgb, ln.line.width = RGBColor(0xB8, 0xC7, 0xDA), Pt(1.5)
+    ln.line.dash_style = MSO_LINE.DASH
+ROW0, ROWH = 2.3, 0.5
+def ry(i): return ROW0 + i * ROWH
+def msg(i, a, b, txt, color=GREY):
+    y = ry(i) + 0.4
+    arrow(s, cx[a], y, cx[b], y, color=color)
+    label(s, min(cx[a], cx[b]) + 0.02, y - 0.27, abs(cx[b] - cx[a]) - 0.04, 0.24, txt, size=10, color=INK, align=PP_ALIGN.CENTER, space=0)
+def note(i, x, w, txt, fill=LIGHT, line=GREY, color=INK):
+    box(s, x, ry(i) + 0.05, w, 0.34, fill=fill, line=line)
+    label(s, x + 0.03, ry(i) + 0.08, w - 0.06, 0.28, txt, size=10, bold=True, color=color, align=PP_ALIGN.CENTER, space=0)
+msg(0, 0, 1, "1 track_shipment")
+msg(1, 1, 2, "2 MCP call")
+msg(2, 1, 3, "3 MCP down: run here", color=AMBER)
+note(3, 1.45, 3.4, "4 Result says failover: python", RGBColor(0xFD, 0xF0, 0xD7), AMBER, INK)
+msg(4, 1, 4, "5 Still failing or breaker open", color=RED)
+msg(5, 0, 5, "6 Spans, tokens, cost (batched)", color=TEAL)
+note(6, 0.3, 3.9, "7 LLM down: /chat queues the case", PINK, RED, RED)
+label(s, 7.6, 1.5, 5.15, 0.3, "TICKET B, LIVE (GEMINI, MCP DEFAULT)", size=11, bold=True, color=TEAL)
+box(s, 7.6, 1.85, 5.15, 1.75, fill=RGBColor(0xE6, 0xF4, 0xEA), line=GREEN)
+label(s, 7.7, 1.88, 4.95, 1.7, [("What the run showed", {"bold": True, "color": GREEN}),
+    "7 spans reached Langfuse. Triage and Supervisor are generations: 730 / 128 tokens ($0.00054) and 287 / 46 ($0.00020).",
+    "MCP unreachable: the ticket still resolved, the result says failover. LLM unavailable: /chat answered 200 and queued the case (KW-HQ-00003)."], size=10, space=2)
+label(s, 7.6, 3.7, 5.15, 0.3, "WHAT M7 GUARANTEES", size=10, bold=True, color=TEAL)
+table(s, 7.6, 3.98, 5.15, [
+    ["Guarantee", "How"],
+    ["Retries only for transient errors", "backoff; malformed goes to a human"],
+    ["Breaker", "half-open: one trial call"],
+    ["200 seeded calls", "57% clean, then 179 + 21 to a human"],
+    ["Dead tool", "3 real calls, 7 short-circuited"],
+    ["Tracing cost", "+1.3 ms per ticket"],
+], [2.45, 2.7], size=10, row_h=0.28)
+label(s, 7.6, 5.75, 5.15, 0.55, "Found by measuring: a Langfuse flush per ticket cost 200 ms. Now batched.", size=11, bold=True, color=NAVY)
+runbar(s, 6.45, ["pytest tests/unit/test_reliability.py", "python scripts/run_reliability_benchmark.py"])
 
 # 10 Results, limits, demo
-s = new_slide("Results, honest limits, and the five-minute demo", "Evaluation  |  run it yourself",
+s = new_slide("M8 and results: honest limits, and the five-minute demo", "Module 8 and evaluation  |  run it yourself",
     "Be upfront: intent accuracy of 0.72 is below a 0.8 target on noisy Twitter-style labels; it does not affect safety because the cap and escalation rules are deterministic. The middle column is the continuous-improvement story: each row is something the first real run exposed. Demo order: tests for confidence, the strict real demo, the golden eval, then the API. Keep the .env file with the keys beside you; it is not in git. Backup: demo_milestones.py --offline runs with no network. Close on the design principle, then invite questions.")
 table(s, 0.6, 1.5, 4.6, [
     ["Check", "Result"],
@@ -470,6 +500,8 @@ label(s, 5.45, 1.45, 3.7, 0.3, "FOUND BY RUNNING IT, THEN FIXED", size=10, bold=
 label(s, 5.45, 1.75, 3.7, 2.0, ["- Hash 'embeddings': Gemini + BM25 (recall@3 1.0)", "- Wrong category's window: category filter (22 to 24 of 24)", "- Hinglish injection missed: regex screen", "- Refund could run before the reviewer: reviewer now first"], size=11, space=3)
 label(s, 9.35, 1.45, 3.4, 0.3, "NOT COVERED", size=10, bold=True, color=RED)
 label(s, 9.35, 1.75, 3.4, 2.4, ["- No PII redaction in traces; no auth on /chat", "- Injection regex can be evaded", "- Small corpus: retrieval numbers optimistic", "- Supervisor has a menu, not the lab's free star", "- Docker not exercised"], size=11, space=3)
+box(s, 5.45, 3.35, 7.3, 0.85, fill=LIGHT, line=GREY)
+label(s, 5.55, 3.38, 7.1, 0.8, [("M8 package (first version, still being checked against its lab)", {"bold": True, "color": TEAL, "size": 10}), "FastAPI /chat and /health; 20-case golden set, 20 of 20 stored and live. Blocked tickets return 200 plus human review."], size=10, space=1)
 table(s, 0.6, 4.35, 12.15, [
     ["Demo step", "Command", "What the audience sees"],
     ["1  Tests", "python -m pytest tests -q", "93 passed"],
