@@ -80,6 +80,7 @@ This is strict: it stops with the name of any missing key or unreachable service
 python -m pytest tests -q                                  # 98 passed (offline by design, never touches the cloud)
 python scripts/run_m8_golden_eval.py --live                # 20 of 20: live LLM parsing, then agents and guardrails
 python -m scripts.run_m8_component_eval --judge --langfuse # 20 component items, LLM judge, Langfuse experiment
+python scripts/run_policy_eval.py --use-configured-index   # M4 groundedness on the cloud collection: 5 of 5
 ```
 
 **6. Call the API** (it uses the same live LLM, Qdrant Cloud and Langfuse):
