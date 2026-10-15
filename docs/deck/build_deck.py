@@ -456,7 +456,7 @@ table(s, 7.6, 3.98, 5.15, [
     ["Revision loop", "max 2 rounds, then a human"],
     ["MCP: no delete or free-write tool", "10 tools + 1 rules resource"],
 ], [2.75, 2.4], size=10, row_h=0.28)
-label(s, 7.6, 5.75, 5.15, 0.55, "Triage and the Supervisor call an LLM; the other four stages are code.", size=11, bold=True, color=NAVY)
+label(s, 7.6, 5.72, 5.15, 0.7, [("Revision loop, unit-tested with a forced failure (not seen live): ", {"bold": True}), "torn-shirt replacement on KW-O-000010 with no policy evidence is sent back for a wider search, then accepted or handed to a human. Triage and the Supervisor call an LLM; the other four stages are code."], size=10, space=0)
 runbar(s, 6.45, ["pytest tests/unit/test_multi_agent_team.py tests/unit/test_mcp_tools.py"])
 
 # 9 M7 tracing + reliability
