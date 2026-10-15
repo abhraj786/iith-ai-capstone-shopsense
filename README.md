@@ -62,7 +62,7 @@ python -m pytest tests/unit -q
 Expected current result:
 
 ```text
-59 passed
+98 passed
 ```
 
 Run the packaged M8 evaluator (stored tickets, then live LLM parsing), and the M4 retrieval comparison:
@@ -228,7 +228,7 @@ python -m pytest tests/unit
 Expected current result:
 
 ```text
-59 passed
+98 passed
 ```
 
 ## Run Local Workbench UI
@@ -320,7 +320,7 @@ python -m pytest tests/unit/test_mcp_tools.py tests/unit/test_multi_agent_team.p
 Expected:
 
 ```text
-6 passed
+20 passed
 ```
 
 ## Run M7 Reliability And Tracing Tests
@@ -347,7 +347,7 @@ python -m pytest tests/unit/test_reliability.py -q
 Expected:
 
 ```text
-3 passed
+8 passed
 ```
 
 The tests cover retrying transient failures, opening a circuit after repeated

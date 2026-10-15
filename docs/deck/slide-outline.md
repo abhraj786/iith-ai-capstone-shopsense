@@ -23,10 +23,10 @@ M8: Golden Eval and FastAPI Packaging
 
 ## Slides (10, the maximum)
 
-1 Title + the one job | 2 End-to-end architecture
+1 Title | 2 End-to-end architecture
 3 M1 sequence (shapes, one sample) | 4 M2 sequence (same sample) + three cases strip
 5 M3 memory story + sequence | 6 M4 sequence + sample | 7 M5 sequence + sample | 8 M6 sequence + sample
-9 M7 (tracing and reliability) | 10 M8 + results, limits, demo and takeaways
+9 M7 (tracing and reliability) | 10 M8 and results: stat tiles, problem/fix cards, demo
 
 The sample carried through M1 and M2: customer KW-C-00317, order KW-O-000000, claim Rs 12,999.
 Full Mermaid diagrams: `docs/diagrams/`.
