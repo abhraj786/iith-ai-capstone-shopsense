@@ -7,9 +7,12 @@ from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Emu, Inches, Pt
 
-NAVY, TEAL, AMBER, RED = RGBColor(0x14, 0x2B, 0x4D), RGBColor(0x0F, 0x8B, 0x8D), RGBColor(0xE0, 0x9F, 0x1F), RGBColor(0xC0, 0x39, 0x2B)
-GREEN = RGBColor(0x2E, 0x7D, 0x32)
-INK, GREY, LIGHT, WHITE = RGBColor(0x22, 0x2B, 0x38), RGBColor(0x5F, 0x6B, 0x7A), RGBColor(0xEE, 0xF3, 0xF8), RGBColor(255, 255, 255)
+# Palette: pale-blue slides, white cards, navy panels, bright-blue accent (same family as the Salesforce-style reference deck).
+NAVY, TEAL, AMBER, RED = RGBColor(0x03, 0x2D, 0x60), RGBColor(0x01, 0x76, 0xD3), RGBColor(0xE0, 0x9F, 0x1F), RGBColor(0xBA, 0x05, 0x17)
+GREEN = RGBColor(0x2E, 0x84, 0x4A)
+INK, GREY, LIGHT, WHITE = RGBColor(0x1C, 0x2A, 0x3E), RGBColor(0x54, 0x69, 0x7E), RGBColor(255, 255, 255), RGBColor(255, 255, 255)
+STRIPE, CARD_LINE = RGBColor(0xEA, 0xF5, 0xFE), RGBColor(0xC9, 0xDF, 0xF5)
+BG_TOP, BG_BOTTOM = RGBColor(0xEA, 0xF5, 0xFE), RGBColor(0xC4, 0xE1, 0xFC)
 FONT = "Calibri"
 W = 5.95  # column width for the two-module slides
 
@@ -45,6 +48,7 @@ def box(slide, x, y, w, h, fill=LIGHT, line=None, shape=MSO_SHAPE.ROUNDED_RECTAN
     s = slide.shapes.add_shape(shape, Inches(x), Inches(y), Inches(w), Inches(h))
     s.fill.solid(); s.fill.fore_color.rgb = fill
     if line: s.line.color.rgb = line; s.line.width = Pt(1.25)
+    elif fill == LIGHT: s.line.color.rgb = CARD_LINE; s.line.width = Pt(0.75)  # white card on the blue background
     else: s.line.fill.background()
     s.shadow.inherit = False
     if shape == MSO_SHAPE.ROUNDED_RECTANGLE: s.adjustments[0] = 0.08
@@ -81,9 +85,15 @@ def node(slide, x, y, w, h, title, sub="", fill=NAVY, fg=WHITE):
     return s
 
 
+def gradient_bg(slide, top, bottom, angle=90):
+    fill = slide.background.fill
+    fill.gradient(); fill.gradient_angle = angle
+    fill.gradient_stops[0].color.rgb, fill.gradient_stops[1].color.rgb = top, bottom
+
+
 def new_slide(title, kicker, notes):
     s = prs.slides.add_slide(BLANK)
-    box(s, 0, 0, 13.333, 0.12, fill=TEAL, shape=MSO_SHAPE.RECTANGLE)
+    gradient_bg(s, BG_TOP, BG_BOTTOM)
     label(s, 0.6, 0.3, 12, 0.3, kicker.upper(), size=12, bold=True, color=TEAL)
     label(s, 0.6, 0.6, 12.1, 1.0, title, size=28, bold=True, color=NAVY)
     n = len(prs.slides)
@@ -99,7 +109,7 @@ def table(slide, x, y, w, rows, col_w, size=13, row_h=0.45):
     for i, row in enumerate(rows):
         for j, val in enumerate(row):
             c = t.cell(i, j); c.text = ""
-            c.fill.solid(); c.fill.fore_color.rgb = NAVY if i == 0 else (LIGHT if i % 2 else WHITE)
+            c.fill.solid(); c.fill.fore_color.rgb = NAVY if i == 0 else (STRIPE if i % 2 else WHITE)
             text(c.text_frame, str(val), size=size, bold=(i == 0), color=WHITE if i == 0 else INK, space=0)
             c.margin_top = c.margin_bottom = Inches(0.04)
     return t
@@ -122,8 +132,8 @@ def runbar(slide, y, cmds):
 
 # 1 Title
 s = prs.slides.add_slide(BLANK)
-box(s, 0, 0, 13.333, 7.5, fill=NAVY, shape=MSO_SHAPE.RECTANGLE)
-box(s, 0.8, 2.2, 0.12, 2.2, fill=TEAL, shape=MSO_SHAPE.RECTANGLE)
+gradient_bg(s, RGBColor(0x0B, 0x5C, 0xD5), NAVY, angle=45)
+box(s, 0.8, 2.2, 0.12, 2.2, fill=RGBColor(0x90, 0xD0, 0xFE), shape=MSO_SHAPE.RECTANGLE)
 label(s, 1.1, 2.1, 11, 1.0, "ShopSense", size=54, bold=True, color=WHITE)
 label(s, 1.1, 3.1, 11, 1.0, "A customer-care assistant that acts safely, or hands off to a human", size=24, color=WHITE)
 label(s, 1.1, 4.3, 11, 0.5, "Abhishek Raj", size=26, bold=True, color=WHITE)
