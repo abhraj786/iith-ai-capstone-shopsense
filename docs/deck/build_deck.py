@@ -125,7 +125,7 @@ box(s, 0, 0, 13.333, 7.5, fill=NAVY, shape=MSO_SHAPE.RECTANGLE)
 box(s, 0.8, 2.2, 0.12, 2.2, fill=TEAL, shape=MSO_SHAPE.RECTANGLE)
 label(s, 1.1, 2.1, 11, 1.0, "ShopSense", size=54, bold=True, color=WHITE)
 label(s, 1.1, 3.1, 11, 1.0, "A customer-care assistant that acts safely, or hands off to a human", size=24, color=WHITE)
-label(s, 1.1, 4.0, 11, 0.5, "Problem Statement 4  |  Milestones M1 to M6 complete, M7 and M8 in progress  |  IITH Applied AI Capstone", size=16, color=RGBColor(0xB8, 0xC7, 0xDA))
+label(s, 1.1, 4.0, 11, 0.5, "Problem Statement 4  |  Milestones M1 to M7 complete, M8 in progress  |  IITH Applied AI Capstone", size=16, color=RGBColor(0xB8, 0xC7, 0xDA))
 box(s, 1.1, 5.0, 11.2, 1.1, fill=TEAL)
 label(s, 1.3, 5.08, 10.8, 1.0, [("The single job it must get right", {"size": 13, "bold": True, "color": WHITE}), ("Never take a money-moving or policy-sensitive action it should not.", {"size": 21, "bold": True, "color": WHITE})], space=2)
 label(s, 1.1, 6.5, 11, 0.4, "Capstone presentation", size=16, color=WHITE)
@@ -133,13 +133,13 @@ s.notes_slide.notes_text_frame.text = "Open with the promise: routine tickets re
 
 # 3 Architecture
 s = new_slide("One pipeline: parse, look up, ground, plan, then gate", "End-to-end architecture",
-              "Walk left to right. The bottom band wraps everything: LangGraph orchestration, tracing, and the API. The red gate is the deterministic guardrail layer. Unit tests per module: M1 13, M2 22, M3 5, M4 2, M5 6, M6 13, M7 3, M8 3.")
+              "Walk left to right. The bottom band wraps everything: LangGraph orchestration, tracing, and the API. The red gate is the deterministic guardrail layer. Unit tests per module: M1 13, M2 22, M3 5, M4 2, M5 6, M6 20, M7 8, M8 3.")
 y = 2.0
 xs = [0.5, 2.85, 5.2, 7.55]
 node(s, xs[0], y, 2.0, 1.1, "Customer message", "chat / email text", fill=GREY)
 node(s, xs[1], y, 2.0, 1.1, "M1 Intake", "LLM to SupportTicket", fill=NAVY)
 node(s, xs[2], y, 2.0, 1.1, "M3 Memory", "history, repeat count", fill=NAVY)
-node(s, xs[3], y, 2.0, 1.1, "M2/M6 Tools", "one gateway, Python or MCP", fill=NAVY)
+node(s, xs[3], y, 2.0, 1.1, "M2/M6 Tools", "one gateway, MCP then Python", fill=NAVY)
 node(s, 9.9, y, 2.9, 1.1, "M4 Policy RAG", "Gemini embeddings + BM25", fill=NAVY)
 for a, b in zip(xs[:3], xs[1:]): arrow(s, a + 2.0, y + 0.55, b, y + 0.55)
 arrow(s, xs[3] + 2.0, y + 0.55, 9.9, y + 0.55)
@@ -441,24 +441,24 @@ label(s, 7.6, 5.75, 5.15, 0.55, "Triage and the Supervisor call an LLM; the othe
 runbar(s, 6.45, ["pytest tests/unit/test_multi_agent_team.py tests/unit/test_mcp_tools.py"])
 
 # 7 M7 + M8
-s = new_slide("M7 and M8: first version built, being finished next", "Modules 7 and 8  |  in progress, to be checked against the labs",
-    "Traces are always written locally and forwarded to LangFuse when keys exist; we confirmed through the LangFuse API that spans from a real run arrive. The golden set is deliberately adversarial: five injection variants, cross-customer orders, safety, repeat contact. Both stored and live-LLM runs pass 20 of 20.")
+s = new_slide("M7 and M8: M7 verified, M8 being finished next", "Modules 7 and 8  |  M7 checked live, M8 still to be checked against its lab",
+    "M7 story with ticket B: the same ticket now leaves a trace. Open Langfuse: seven spans, Triage and Supervisor shown as generations with model, tokens and cost (about 0.05 cents for the ticket). Reliability: the tool call goes over MCP by default; if the MCP server cannot start, the same call runs in process and the result says so. Retries only cover transient errors, malformed data goes straight to the human queue, and the breaker lets exactly one trial call through after its cooldown. If the language model itself is down, /chat answers with a safe human hand-off instead of an error. Honest finding: flushing Langfuse after every ticket added about 200 ms, so it is now batched in the background (tracing costs about 1.5 ms). Seeded numbers: 114 of 200 clean at baseline, 179 clean plus 21 sent to a human after hardening. M8: the golden set is deliberately adversarial: five injection variants, cross-customer orders, safety, repeat contact; stored and live runs pass 20 of 20. Detail: docs/diagrams/m7_observability_reliability_sequence.md.")
 column(s, 0.6, W, "M7", "Tracing + reliability", [
-    ("What", ["- See every agent, tool and retrieval step; survive provider failures"], 0.5),
-    ("How", ["- LangFuse spans plus local JSONL traces", "- LLM: schema re-ask, 429 backoff, 60s timeout. Tools: retry, circuit breaker, human-queue fallback"], 0.85),
-    ("Proof", ["- Verified in LangFuse: Memory, Policy RAG, Order-Actions, Escalation spans", "- 3 reliability tests"], 0.85)])
+    ("What", ["- See every agent, tool and LLM step; survive flaky tools and a dead model"], 0.5),
+    ("How", ["- LangFuse + local JSONL; Triage and Supervisor are generation spans (tokens, cost)", "- Tools: MCP first, Python failover; retry, half-open breaker, human-queue fallback. LLM down: human hand-off"], 1.25),
+    ("Proof", ["- 200 seeded calls: 57% clean, then 179 clean + 21 to a human = 100% handled", "- Dead tool: 3 real calls, 7 short-circuited. Tracing +1.5 ms (per-ticket flush was +200 ms, fixed)"], 1.0)])
 column(s, 6.75, W, "M8", "Golden eval + FastAPI", [
     ("What", ["- 20-case golden set over 5 customers; /chat and /health API"], 0.5),
     ("How", ["- Each case states action, human-or-not, guardrail codes, forbidden actions", "- --live parses raw text with the real LLM"], 0.85),
     ("Proof", ["- 20 of 20 stored, 20 of 20 live (Gemini)", "- Local uvicorn run verified; blocked tickets return 200 + human review"], 0.85)])
-runbar(s, 6.25, ["pytest tests/unit/test_reliability.py", "python scripts/run_m8_golden_eval.py --live"])
+runbar(s, 6.45, ["pytest tests/unit/test_reliability.py", "python scripts/run_reliability_benchmark.py", "python scripts/run_m8_golden_eval.py --live"])
 
 # 10 Results, limits, demo
 s = new_slide("Results, honest limits, and the five-minute demo", "Evaluation  |  run it yourself",
     "Be upfront: intent accuracy of 0.72 is below a 0.8 target on noisy Twitter-style labels; it does not affect safety because the cap and escalation rules are deterministic. The middle column is the continuous-improvement story: each row is something the first real run exposed. Demo order: tests for confidence, the strict real demo, the golden eval, then the API. Keep the .env file with the keys beside you; it is not in git. Backup: demo_milestones.py --offline runs with no network. Close on the design principle, then invite questions.")
 table(s, 0.6, 1.5, 4.6, [
     ["Check", "Result"],
-    ["Unit tests (fresh clone)", "87 passed"],
+    ["Unit tests (fresh clone)", "93 passed"],
     ["M8 golden, stored", "20 / 20"],
     ["M8 golden, live Gemini", "20 / 20"],
     ["M4 recall@3, hybrid", "1.000"],
@@ -472,14 +472,14 @@ label(s, 9.35, 1.45, 3.4, 0.3, "NOT COVERED", size=10, bold=True, color=RED)
 label(s, 9.35, 1.75, 3.4, 2.4, ["- No PII redaction in traces; no auth on /chat", "- Injection regex can be evaded", "- Small corpus: retrieval numbers optimistic", "- Supervisor has a menu, not the lab's free star", "- Docker not exercised"], size=11, space=3)
 table(s, 0.6, 4.35, 12.15, [
     ["Demo step", "Command", "What the audience sees"],
-    ["1  Tests", "python -m pytest tests -q", "87 passed"],
+    ["1  Tests", "python -m pytest tests -q", "93 passed"],
     ["2  Milestones", "python demo_milestones.py --real", "M1 to M8 on live LLM, Qdrant Cloud, LangFuse"],
     ["3  Golden eval", "python scripts/run_m8_golden_eval.py --live", "20 of 20 with guardrail codes"],
     ["4  API", "uvicorn capstone.api:app, then demo_api_client.py", "/chat decisions for 7 cases"],
 ], [1.8, 5.6, 4.75], size=10.5, row_h=0.3)
 box(s, 0.6, 6.0, 12.15, 0.95, fill=NAVY)
 label(s, 0.8, 6.03, 11.8, 0.9, [("Let the model read, let code decide. A fooled model still cannot move money.", {"size": 14, "bold": True, "color": WHITE}),
-    ("Measure, then fix. Every claim is runnable: 87 tests, 20 golden cases.   github.com/abhraj786/iith-ai-capstone-shopsense", {"size": 12, "bold": True, "color": WHITE})], space=3)
+    ("Measure, then fix. Every claim is runnable: 93 tests, 20 golden cases.   github.com/abhraj786/iith-ai-capstone-shopsense", {"size": 12, "bold": True, "color": WHITE})], space=3)
 
 
 # Speaker lines for the two extra tickets, appended to each module slide's notes.

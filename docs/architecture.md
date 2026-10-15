@@ -74,7 +74,8 @@ Out of scope in this version:
 - Secrets live in a git-ignored `.env`; `.env.example` lists the variables. Never commit keys.
 - Embeddings fall back to the hash backend when no Gemini key is set (`CAPSTONE_EMBEDDINGS=hash`), so tests run offline. Embeddings are cached in `runtime/embedding_cache.json`.
 - LLM calls: schema-invalid output is re-asked up to 2 times with the error; 429 rate limits wait and retry (8s, doubling, up to 4 retries); LiteLLM adds 2 network retries; 60s timeout. There is no model-to-model fallback; if the LLM stays down the call raises `LLMError`.
-- Tool calls (M7): 2 attempts with backoff, a per-tool circuit breaker, and a human-queue fallback when it opens.
+- Tool calls (M7): MCP first with a visible in-process failover; 2 attempts with backoff, a per-tool circuit breaker (closed, open, half-open with one trial call), and a human-queue fallback when it opens. If the LLM is down, /chat hands the case to a human.
+- Tracing (M7): Triage and Supervisor are Langfuse generation spans with tokens and cost; Langfuse events are batched in the background.
 - Embeddings: retry with backoff, disk cache, and a hash fallback when no key is set.
 - Logging: LangFuse traces plus local JSONL traces in `runtime/`.
 - Rollback: the Qdrant collection name carries the backend suffix (`_gemini`), so the old collection stays intact. Redeploy the previous git tag.

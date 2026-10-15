@@ -301,9 +301,13 @@ The team can also use the lab-style MCP path through `ShopSenseMCPClient`:
 MultiAgentTeam -> MCP client -> MCP server -> deterministic Python tools
 ```
 
-The direct Python gateway is the default. Set `CAPSTONE_TOOL_TRANSPORT=mcp` to
-send every order tool call (eligibility, refund amount, approver tier, tracking,
-final write) through the MCP server instead, including from the `/chat` API.
+MCP is the default: every order tool call (eligibility, refund amount, approver
+tier, tracking, final write) goes through the MCP server, including from the
+`/chat` API. If the MCP server cannot be reached at all, `FailoverToolGateway`
+runs that call on the in-process gateway and says so (`failover` in the result,
+"via python" in the step summary). A tool that answers `ok: false` is never
+re-run elsewhere. Set `CAPSTONE_TOOL_TRANSPORT=python` to stay in-process (the
+unit tests do this).
 The M6 tests include a protocol-backed call that discovers and invokes the
 running MCP server over stdio.
 
@@ -524,9 +528,12 @@ M7 adds observability and reliability around the M6 agent/tool boundary.
 - Policy retrieval and concrete tool calls are nested child spans.
 - `scripts/summarize_trace.py` builds the local per-span latency/error/fallback table.
 - `ReliableToolGateway` retries transient tool failures with exponential backoff.
-- `CircuitBreaker` opens after repeated failures and avoids hammering a down tool.
+- `CircuitBreaker` opens after repeated failures, then goes half-open after the cooldown: exactly one trial call is let through, success closes it, failure re-opens it at once.
 - Transient and malformed tool failures fall back to the human queue so customer cases are not dropped.
-- `scripts/run_reliability_benchmark.py` provides a seeded before/after hardening benchmark.
+- `scripts/run_reliability_benchmark.py` provides a seeded before/after hardening benchmark (seed 42, 200 calls: 57% clean at baseline; with retries and the human-queue fallback 179 clean + 21 handed to a person = 100% handled) and a breaker demo (dead dependency: 3 real calls, 7 short-circuited).
+- Triage and Supervisor are traced as Langfuse *generation* spans with model, input/output tokens and cost; `summarize_trace.py` shows tokens and cost per agent.
+- `scripts/run_tracing_overhead.py` measures what tracing costs (about +0.5 ms local, +1.5 ms with Langfuse per ticket). Langfuse events are batched in the background; set `CAPSTONE_LANGFUSE_FLUSH_EACH_TRACE=true` to flush per ticket (this made each ticket about 200 ms slower).
+- If the language model is down, `/chat` returns a safe answer instead of an error: the case is queued for a human (`trace.degraded = llm_unavailable`).
 
 ## M8 Design
 
