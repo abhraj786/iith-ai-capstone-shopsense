@@ -23,9 +23,17 @@ def test_policy_agent_answers_beauty_window_without_inventing_30_days():
     assert answer.citations
 
 
+def test_policy_answer_has_no_repeated_fragment_and_cites_its_source():
+    answer = _agent().answer("damaged_delivery Damaged order, demands refund.", category="Home & Kitchen")
+    assert not any(a != b and a in b for a in answer.evidence for b in answer.evidence)
+    assert answer.citations and all(c.document_slug == "category-home-kitchen" for c in answer.citations)
+
+
 def test_policy_agent_answers_auto_refund_cap_with_citation():
     answer = _agent().answer("What is the automated assistant refund approval cap?")
     text = " ".join([answer.answer, *answer.evidence])
     assert answer.grounded
     assert "2,000" in text
-    assert any(c.document_slug == "refund-authority" for c in answer.citations)
+    # Citations name the chunk each quoted sentence came from; both documents state the 2,000 cap.
+    assert {c.document_slug for c in answer.citations} <= {"refund-authority", "escalation-tone"}
+    assert answer.citations

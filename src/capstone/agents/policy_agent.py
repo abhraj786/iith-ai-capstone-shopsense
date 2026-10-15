@@ -64,7 +64,20 @@ def _evidence_sentences(question: str, hits: list[PolicyHit], limit: int = 4) ->
             seen.add(sentence)
         if len(selected) >= limit:
             break
-    return selected
+    # Overlapping chunks repeat text: drop a sentence that is only a piece of another selected one.
+    return [x for x in selected if not any(x != y and x in y for y in selected)]
+
+
+def _cite(sentences: list[str], hits: list[PolicyHit]) -> list[PolicyCitation]:
+    """Cite the chunk each sentence was quoted from, in order, without repeats."""
+    cited: dict[tuple[str, int], PolicyCitation] = {}
+    for sentence in sentences:
+        for hit in hits:
+            if sentence in hit.text:
+                cited.setdefault((hit.document_slug, hit.chunk_id), PolicyCitation(
+                    document_slug=hit.document_slug, title=hit.title, chunk_id=hit.chunk_id))
+                break
+    return list(cited.values())
 
 
 def _grounded(answer: str, evidence: list[str]) -> tuple[bool, list[str]]:
@@ -94,11 +107,12 @@ class PolicyAgent:
                         and _stems(question) & {_stem(t) for t in _tokens(s.lower())}][:2]
         if len(evidence) < 2:
             evidence = (evidence + [e for e in _evidence_sentences(question, hits) if e not in evidence])[:4]
-        citations = [
+        top_hits = [
             PolicyCitation(document_slug=hit.document_slug, title=hit.title, chunk_id=hit.chunk_id)
             for hit in hits[:3]
         ]
         if not evidence:
+            citations = top_hits
             return PolicyAnswer(
                 question=question,
                 answer="I do not have enough policy evidence to answer this.",
@@ -108,6 +122,7 @@ class PolicyAgent:
                 unsupported_claims=["no_relevant_evidence"],
             )
 
+        citations = _cite(evidence[:3], hits) or top_hits
         answer = f"{ANSWER_PREFIX} " + " ".join(evidence[:3])
         grounded, unsupported = _grounded(answer, evidence)
         return PolicyAnswer(
