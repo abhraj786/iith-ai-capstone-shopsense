@@ -126,7 +126,7 @@ box(s, 0, 0, 13.333, 7.5, fill=NAVY, shape=MSO_SHAPE.RECTANGLE)
 box(s, 0.8, 2.2, 0.12, 2.2, fill=TEAL, shape=MSO_SHAPE.RECTANGLE)
 label(s, 1.1, 2.1, 11, 1.0, "ShopSense", size=54, bold=True, color=WHITE)
 label(s, 1.1, 3.1, 11, 1.0, "A customer-care assistant that acts safely, or hands off to a human", size=24, color=WHITE)
-label(s, 1.1, 4.0, 11, 0.5, "Problem Statement 4  |  Milestones M1 to M7 complete, M8 in progress  |  IITH Applied AI Capstone", size=16, color=RGBColor(0xB8, 0xC7, 0xDA))
+label(s, 1.1, 4.0, 11, 0.5, "Problem Statement 4  |  Milestones M1 to M8 complete  |  IITH Applied AI Capstone", size=16, color=RGBColor(0xB8, 0xC7, 0xDA))
 box(s, 1.1, 5.0, 11.2, 1.1, fill=TEAL)
 label(s, 1.3, 5.08, 10.8, 1.0, [("The single job it must get right", {"size": 13, "bold": True, "color": WHITE}), ("Never take a money-moving or policy-sensitive action it should not.", {"size": 21, "bold": True, "color": WHITE})], space=2)
 label(s, 1.1, 6.5, 11, 0.4, "Capstone presentation", size=16, color=WHITE)
@@ -134,7 +134,7 @@ s.notes_slide.notes_text_frame.text = "Open with the promise: routine tickets re
 
 # 3 Architecture
 s = new_slide("One pipeline: parse, look up, ground, plan, then gate", "End-to-end architecture",
-              "Walk left to right. The bottom band wraps everything: LangGraph orchestration, tracing, and the API. The red gate is the deterministic guardrail layer. Unit tests per module: M1 13, M2 22, M3 5, M4 2, M5 6, M6 20, M7 8, M8 3.")
+              "Walk left to right. The bottom band wraps everything: LangGraph orchestration, tracing, and the API. The red gate is the deterministic guardrail layer. 98 unit tests in total, 11 of them for M8.")
 y = 2.0
 xs = [0.5, 2.85, 5.2, 7.55]
 node(s, xs[0], y, 2.0, 1.1, "Customer message", "chat / email text", fill=GREY)
@@ -513,33 +513,33 @@ runbar(s, 6.45, ["pytest tests/unit/test_reliability.py", "python scripts/run_re
 
 # 10 Results, limits, demo
 s = new_slide("M8 and results: honest limits, and the five-minute demo", "Module 8 and evaluation  |  run it yourself",
-    "Be upfront: intent accuracy of 0.72 is below a 0.8 target on noisy Twitter-style labels; it does not affect safety because the cap and escalation rules are deterministic. The middle column is the continuous-improvement story: each row is something the first real run exposed. Demo order: tests for confidence, the strict real demo, the golden eval, then the API. Keep the .env file with the keys beside you; it is not in git. Backup: demo_milestones.py --offline runs with no network. Close on the design principle, then invite questions.")
+    "Be upfront: intent accuracy of 0.72 is below a 0.8 target on noisy Twitter-style labels; it does not affect safety because the cap and escalation rules are deterministic. The middle column is the continuous-improvement story: each row is something the first real run exposed. M8 facts: 20 ticket cases pass 20 of 20 stored and live. 20 component items (5 each: tool use, retrieval, planning, final answer) score 1.0 by rules. An in-repo LLM judge (not Ragas or DeepEval) gave faithfulness 1.0 and context relevance 0.64, and disagreed with the keyword check on two retrieval items, product safety and double charge: the right words were there but the passages were about something else. That is a real retrieval weakness. One golden label was my own mistake and was corrected. Retrieved policy text is now scanned for injected instructions. Docker was written but not built here (no Docker on this machine); the Postman collection ran on localhost, not through ngrok. Demo order: tests for confidence, the strict real demo, the golden eval, then the API. Keep the .env file with the keys beside you; it is not in git. Backup: demo_milestones.py --offline runs with no network. Close on the design principle, then invite questions.")
 table(s, 0.6, 1.5, 4.6, [
     ["Check", "Result"],
-    ["Unit tests (fresh clone)", "93 passed"],
+    ["Unit tests (fresh clone)", "98 passed"],
     ["M8 golden, stored", "20 / 20"],
     ["M8 golden, live Gemini", "20 / 20"],
     ["M4 recall@3, hybrid", "1.000"],
-    ["M4 answers, with category", "24 / 24"],
+    ["M8 components (4 x 5 items)", "1.0 / judge 0.64"],
     ["M1 escalation recall", "0.82"],
     ["M1 intent accuracy", "0.72 (target 0.8)"],
 ], [3.0, 1.6], size=11, row_h=0.34)
 label(s, 5.45, 1.45, 3.7, 0.3, "FOUND BY RUNNING IT, THEN FIXED", size=10, bold=True, color=TEAL)
 label(s, 5.45, 1.75, 3.7, 2.0, ["- Hash 'embeddings': Gemini + BM25 (recall@3 1.0)", "- Wrong category's window: category filter (22 to 24 of 24)", "- Hinglish injection missed: regex screen", "- Refund could run before the reviewer: reviewer now first"], size=11, space=3)
 label(s, 9.35, 1.45, 3.4, 0.3, "NOT COVERED", size=10, bold=True, color=RED)
-label(s, 9.35, 1.75, 3.4, 2.4, ["- No PII redaction in traces; no auth on /chat", "- Injection regex can be evaded", "- Small corpus: retrieval numbers optimistic", "- Supervisor has a menu, not the lab's free star", "- Docker not exercised"], size=11, space=3)
-box(s, 5.45, 3.35, 7.3, 0.85, fill=LIGHT, line=GREY)
-label(s, 5.55, 3.38, 7.1, 0.8, [("M8 package (first version, still being checked against its lab)", {"bold": True, "color": TEAL, "size": 10}), "FastAPI /chat and /health; 20-case golden set, 20 of 20 stored and live. Blocked tickets return 200 plus human review."], size=10, space=1)
+label(s, 9.35, 1.75, 3.4, 2.4, ["- No PII redaction in traces; no auth on /chat", "- Injection regex can be evaded", "- Small corpus: retrieval numbers optimistic", "- Supervisor has a menu, not the lab's free star", "- Docker image written, not built"], size=11, space=3)
+box(s, 5.45, 3.2, 7.3, 1.05, fill=LIGHT, line=GREY)
+label(s, 5.55, 3.22, 7.1, 1.0, [("M8 package, checked against its lab", {"bold": True, "color": TEAL, "size": 10}), "FastAPI /chat and /health, Dockerfile, Postman run for A, B, C on localhost. Blocked ticket: 200 + human review; bad input: 422.", "Judge found weak retrieval the keyword check missed (product safety, double charge): context relevance 0.64."], size=10, space=1)
 table(s, 0.6, 4.35, 12.15, [
     ["Demo step", "Command", "What the audience sees"],
-    ["1  Tests", "python -m pytest tests -q", "93 passed"],
+    ["1  Tests", "python -m pytest tests -q", "98 passed"],
     ["2  Milestones", "python demo_milestones.py --real", "M1 to M8 on live LLM, Qdrant Cloud, LangFuse"],
-    ["3  Golden eval", "python scripts/run_m8_golden_eval.py --live", "20 of 20 with guardrail codes"],
-    ["4  API", "uvicorn capstone.api:app, then demo_api_client.py", "/chat decisions for 7 cases"],
+    ["3  Golden eval", "python scripts/run_m8_golden_eval.py --live", "20 of 20 + run_m8_component_eval --judge scores"],
+    ["4  API", "uvicorn capstone.api:app, then the Postman collection", "/chat for tickets A, B, C; empty text gives 422"],
 ], [1.8, 5.6, 4.75], size=10.5, row_h=0.3)
 box(s, 0.6, 6.0, 12.15, 0.95, fill=NAVY)
 label(s, 0.8, 6.03, 11.8, 0.9, [("Let the model read, let code decide. A fooled model still cannot move money.", {"size": 14, "bold": True, "color": WHITE}),
-    ("Measure, then fix. Every claim is runnable: 93 tests, 20 golden cases.   github.com/abhraj786/iith-ai-capstone-shopsense", {"size": 12, "bold": True, "color": WHITE})], space=3)
+    ("Measure, then fix. Every claim is runnable: 98 tests, 40 golden items.   github.com/abhraj786/iith-ai-capstone-shopsense", {"size": 12, "bold": True, "color": WHITE})], space=3)
 
 
 # Speaker lines for the two extra tickets, appended to each module slide's notes.
