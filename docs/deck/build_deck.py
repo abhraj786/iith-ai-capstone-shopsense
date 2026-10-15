@@ -241,11 +241,11 @@ for i, txt in enumerate(payload):
     box(s, 6.85, ry(i) + 0.01, 5.9, ROWH - 0.05, fill=fillc, shape=MSO_SHAPE.RECTANGLE)
     label(s, 6.88, ry(i) + 0.03, 0.3, 0.3, str(i + 1), size=13, bold=True, color=RED if i == 2 else TEAL, space=0)
     label(s, 7.15, ry(i) + 0.02, 5.55, ROWH - 0.06, txt, size=10, space=0)
-label(s, 0.6, 5.68, 12.1, 0.28, "THE SAME RULES ON THREE TICKETS   (read-only tools = rules in code, run in order, each only if the one before it passes)", size=10.5, bold=True, color=TEAL)
+label(s, 0.6, 5.68, 12.1, 0.28, "THE SAME RULES ON THREE CASES   (read-only tools = rules in code, run in order, each only if the one before it passes)", size=10.5, bold=True, color=TEAL)
 for x, col, head, l1, l2, l3 in [
-    (0.6, RED, "A  Hostile, red flags on", "Rules run: none. Stops at refund_above_auto_cap", "Action tool: flag_for_human", "Outcome: human_review"),
-    (4.7, AMBER, "B  Same ticket, no red flags", "Rules: eligible; refund 12,999; approver ops_manager (human)", "Action tool: flag_for_human", "Outcome: human_review"),
-    (8.8, GREEN, "C  Calm, KW-C-00338, KW-O-000019, Rs 299", "Rules: eligible; refund 299; approver auto", "Action tool: create_replacement", "Outcome: replacement")]:
+    (0.6, RED, "Case 1  Hostile, red flags on", "Rules run: none. Stops at refund_above_auto_cap", "Action tool: flag_for_human", "Outcome: human_review"),
+    (4.7, AMBER, "Case 2  Same ticket, no red flags", "Rules: eligible; refund 12,999; approver ops_manager (human)", "Action tool: flag_for_human", "Outcome: human_review"),
+    (8.8, GREEN, "Case 3  Calm, KW-C-00338, KW-O-000019, Rs 299", "Rules: eligible; refund 299; approver auto", "Action tool: create_replacement", "Outcome: replacement")]:
     box(s, x, 5.98, 3.95, 0.3, fill=col)
     label(s, x + 0.08, 5.99, 3.8, 0.28, head, size=11, bold=True, color=WHITE if col != AMBER else INK, space=0)
     box(s, x, 6.28, 3.95, 0.7, fill=LIGHT)
@@ -480,6 +480,22 @@ table(s, 0.6, 4.35, 12.15, [
 box(s, 0.6, 6.0, 12.15, 0.95, fill=NAVY)
 label(s, 0.8, 6.03, 11.8, 0.9, [("Let the model read, let code decide. A fooled model still cannot move money.", {"size": 14, "bold": True, "color": WHITE}),
     ("Measure, then fix. Every claim is runnable: 87 tests, 20 golden cases.   github.com/abhraj786/iith-ai-capstone-shopsense", {"size": 12, "bold": True, "color": WHITE})], space=3)
+
+
+# Speaker lines for the two extra tickets, appended to each module slide's notes.
+# B = "Hi, where is my order KW-O-000010?" (customer KW-C-00194). C = consumer-court threat on KW-O-000950 (customer KW-C-00285).
+# All values below come from live runs.
+EXTRA_NOTES = {
+    1: "Three tickets run through the same code. A is the hostile Rs 12,999 ticket we follow in detail. B is a plain 'where is my order' (KW-O-000010). C is a consumer-court threat on KW-O-000950. The table shows what each module does with each one; the last column is the M6 route, which is where they finally take different paths.",
+    2: "Ticket B: calm, issue track_order, no escalation signals, no amount, order id found in the text. Ticket C: angry, urgency high, legal_or_regulatory signal, no amount claimed. Nothing in the model decides the outcome here; it only reads.",
+    3: "Ticket B: track_order, so the rules call the read-only shipment lookup and no human is needed. Ticket C: the legal_or_regulatory signal is on the priority list, so the plan is flag_for_human straight away. Same rules as ticket A, different first match.",
+    4: "Tickets B and C are first contacts with empty memory, so contact number is 1 and no repeat flag is added. Memory has nothing special to say about them; the story is ticket A's eight tickets.",
+    5: "Ticket B needs no policy answer for tracking, and the live answer was off-topic (shipping address rules), which is why M6 skips this step for such tickets. Ticket C retrieves from escalation-tone, the right document, grounded.",
+    6: "Ticket B auto-resolves without a pause: status auto_resolved_proposed, 5 checkpoints. Ticket C pauses at legal_or_regulatory; after approval by ops_manager the human-desk flag is filed, status human_approved_executed, 6 checkpoints. Approval files the case with the desk; it does not pay anything.",
+}
+for i, extra in EXTRA_NOTES.items():
+    tf = prs.slides[i].notes_slide.notes_text_frame
+    tf.text = (tf.text + "\n\n" + extra).strip()
 
 assert len(prs.slides) == total_slides, len(prs.slides)
 prs.save(Path(__file__).with_name("iith-ai-capstone-shopsense.pptx"))
