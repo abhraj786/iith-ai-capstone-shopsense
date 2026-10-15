@@ -1,4 +1,0 @@
-domain: shopsense
-data_root: data
-runtime_root: runtime
-llm_model: gemini/gemini-flash-lite-latest

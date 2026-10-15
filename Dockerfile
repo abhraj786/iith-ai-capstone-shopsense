@@ -8,7 +8,6 @@ COPY src ./src
 # Editable install: the app finds data/ and runtime/ relative to /app, not site-packages.
 RUN pip install -e .
 
-COPY configs ./configs
 COPY data ./data
 COPY prompts ./prompts
 

@@ -228,7 +228,6 @@ __marimo__/
 !/data/shopsense/corpus/pdf/*.pdf
 !/data/shopsense/intake/records.jsonl
 !/data/shopsense/mock_api/*.csv
-!/data/shopsense/mock_api/*.json
 /runtime/**
 !/runtime/**/
 !/runtime/**/.gitkeep
