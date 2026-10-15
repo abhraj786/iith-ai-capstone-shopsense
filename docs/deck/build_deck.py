@@ -125,7 +125,7 @@ box(s, 0, 0, 13.333, 7.5, fill=NAVY, shape=MSO_SHAPE.RECTANGLE)
 box(s, 0.8, 2.2, 0.12, 2.2, fill=TEAL, shape=MSO_SHAPE.RECTANGLE)
 label(s, 1.1, 2.1, 11, 1.0, "ShopSense", size=54, bold=True, color=WHITE)
 label(s, 1.1, 3.1, 11, 1.0, "A customer-care assistant that acts safely, or hands off to a human", size=24, color=WHITE)
-label(s, 1.1, 4.0, 11, 0.5, "Problem Statement 4  |  Milestones M1 to M8  |  IITH Applied AI Capstone", size=16, color=RGBColor(0xB8, 0xC7, 0xDA))
+label(s, 1.1, 4.0, 11, 0.5, "Problem Statement 4  |  Milestones M1 to M6 complete, M7 and M8 in progress  |  IITH Applied AI Capstone", size=16, color=RGBColor(0xB8, 0xC7, 0xDA))
 box(s, 1.1, 5.0, 11.2, 1.1, fill=TEAL)
 label(s, 1.3, 5.08, 10.8, 1.0, [("The single job it must get right", {"size": 13, "bold": True, "color": WHITE}), ("Never take a money-moving or policy-sensitive action it should not.", {"size": 21, "bold": True, "color": WHITE})], space=2)
 label(s, 1.1, 6.5, 11, 0.4, "Capstone presentation", size=16, color=WHITE)
@@ -139,7 +139,7 @@ xs = [0.5, 2.85, 5.2, 7.55]
 node(s, xs[0], y, 2.0, 1.1, "Customer message", "chat / email text", fill=GREY)
 node(s, xs[1], y, 2.0, 1.1, "M1 Intake", "LLM to SupportTicket", fill=NAVY)
 node(s, xs[2], y, 2.0, 1.1, "M3 Memory", "history, repeat count", fill=NAVY)
-node(s, xs[3], y, 2.0, 1.1, "M2/M6 Tools", "order lookups via MCP", fill=NAVY)
+node(s, xs[3], y, 2.0, 1.1, "M2/M6 Tools", "one gateway, Python or MCP", fill=NAVY)
 node(s, 9.9, y, 2.9, 1.1, "M4 Policy RAG", "Gemini embeddings + BM25", fill=NAVY)
 for a, b in zip(xs[:3], xs[1:]): arrow(s, a + 2.0, y + 0.55, b, y + 0.55)
 arrow(s, xs[3] + 2.0, y + 0.55, 9.9, y + 0.55)
@@ -430,7 +430,7 @@ label(s, 7.6, 5.6, 5.15, 0.6, "Only Triage calls an LLM; the other four are dete
 runbar(s, 6.45, ["pytest tests/unit/test_multi_agent_team.py tests/unit/test_mcp_tools.py"])
 
 # 7 M7 + M8
-s = new_slide("M7 and M8: trace every step, prove it on 20 cases", "Modules 7 and 8  |  reliability and evaluation",
+s = new_slide("M7 and M8: first version built, being finished next", "Modules 7 and 8  |  in progress, to be checked against the labs",
     "Traces are always written locally and forwarded to LangFuse when keys exist; we confirmed through the LangFuse API that spans from a real run arrive. The golden set is deliberately adversarial: five injection variants, cross-customer orders, safety, repeat contact. Both stored and live-LLM runs pass 20 of 20.")
 column(s, 0.6, W, "M7", "Tracing + reliability", [
     ("What", ["- See every agent, tool and retrieval step; survive provider failures"], 0.5),
