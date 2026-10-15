@@ -6,6 +6,7 @@ sentences, and refuses unsupported answers instead of inventing windows, amounts
 
 import re
 
+from capstone.agents.intake_agent import INJECTION_PATTERNS
 from capstone.rag.hybrid import HybridPolicyRetriever
 from capstone.rag.policy_index import PolicyHit, PolicyIndex, _tokens, category_slug
 from capstone.schemas.policy import PolicyAnswer, PolicyCitation
@@ -13,6 +14,12 @@ from capstone.schemas.policy import PolicyAnswer, PolicyCitation
 NUMBER = re.compile(r"\b\d[\d,]*(?:\.\d+)?\b")
 SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+|(?=\* \*\*)|(?=### )")
 ANSWER_PREFIX = "Based on the retrieved policy evidence:"
+
+
+# Policy documents are untrusted input too: a poisoned chunk must not be quoted as policy. The first
+# ticket pattern also matches real rules ("agents may not bypass approval limits"), so it is left out.
+DOC_INJECTION = INJECTION_PATTERNS[1:] + [re.compile(
+    r"\b(ignore|disregard|forget)\b.{0,30}\b(previous|prior|above|all|your)\b.{0,30}\b(instruction|rule|prompt)", re.IGNORECASE)]
 
 
 def _query_terms(question: str) -> set[str]:
@@ -25,7 +32,8 @@ def _query_terms(question: str) -> set[str]:
 def _sentences(text: str) -> list[str]:
     parts = [p.strip(" -*#") for p in SENTENCE_SPLIT.split(text) if p.strip(" -*#")]
     # Skip document front matter (title / reference block) and overlong run-ons.
-    return [p for p in parts if len(p.split()) >= 5 and "Document Reference" not in p and len(p) <= 400]
+    return [p for p in parts if len(p.split()) >= 5 and "Document Reference" not in p and len(p) <= 400
+            and not any(rx.search(p) for rx in DOC_INJECTION)]
 
 
 def _stem(term: str) -> str:

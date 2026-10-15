@@ -63,6 +63,9 @@ class TraceRecorder:
                 f.write(json.dumps(event, sort_keys=True, default=str) + "\n")
         self._langfuse.write(event)
 
+    def score(self, trace_id: str, name: str, value: float) -> None:
+        self._langfuse.score(trace_id, name, value)
+
     def langfuse_url(self, trace_id: str) -> str | None:
         return self._langfuse.url_for_trace(trace_id)
 
@@ -266,6 +269,19 @@ class _LangFuseSink:
             if self.required:
                 raise RuntimeError(f"Could not forward trace event to Langfuse: {type(exc).__name__}: {exc}") from exc
             return
+
+    def score(self, local_trace_id: str, name: str, value: float) -> None:
+        """Attach a numeric score to a trace (best-effort, like every other LangFuse write)."""
+        trace_id = self._trace_ids.get(local_trace_id)
+        if self.client is None or trace_id is None:
+            return
+        try:
+            self.client.create_score(trace_id=trace_id, name=name, value=float(value))
+            if hasattr(self.client, "flush"):
+                self.client.flush()
+        except Exception as exc:
+            if self.required:
+                raise RuntimeError(f"Could not send score to Langfuse: {type(exc).__name__}: {exc}") from exc
 
     def _langfuse_trace_id(self, local_trace_id: str) -> str:
         trace_id = self._trace_ids.get(local_trace_id)

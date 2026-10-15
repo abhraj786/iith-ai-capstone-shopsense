@@ -34,6 +34,23 @@ def _metrics(rows, k=3):
     }
 
 
+def _log_to_langfuse(report: dict) -> None:
+    """One trace per retrieval variant, each metric attached as a score (local JSONL if no keys)."""
+    from capstone.observability.tracing import get_trace_recorder
+
+    recorder = get_trace_recorder()
+    for name, metrics in report["variants"].items():
+        run = recorder.start_trace(f"m4-retrieval-eval:{name}", tags=["m4", "retrieval-eval"],
+                                   metadata={"variant": name, "questions": report["total"],
+                                             "embedding_backend": report["embedding_backend"]})
+        scores = {k: v for k, v in metrics.items() if isinstance(v, (int, float))}
+        result = run.end(output=scores)
+        for key, value in scores.items():
+            recorder.score(run.trace_id, key, value)
+        if result.get("langfuse_url"):
+            report.setdefault("langfuse_traces", {})[name] = result["langfuse_url"]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compare retrieval variants on the M4 golden set.")
     parser.add_argument("--cases", default="evaluation/m4_retrieval_golden.json")
@@ -76,6 +93,7 @@ def main() -> None:
 
     report["answers_without_order_category"] = _answers(False)
     report["answers_with_order_category"] = _answers(True)
+    _log_to_langfuse(report)
     out = PROJECT_ROOT / args.out
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2))

@@ -30,7 +30,7 @@ sequenceDiagram
     I->>I: dense Gemini search + small BM25 boost for exact policy terms (+ optional rerank)
     I-->>A: top 5 chunks (category-home-kitchen #1, #2, #3, #8, returns-policy #3)
     Note over A: Anchor on the top document. Keep sentences that match the question; prefer figures
-    A->>A: drop a sentence that is only a piece of another one
+    A->>A: drop sentences that look like instructions (documents are untrusted) and repeated fragments
     A->>A: cite the chunk each sentence came from
     A->>A: grounded check: every number in the answer must appear in the evidence
     A-->>G: PolicyAnswer (answer, evidence, citations, grounded)
@@ -40,5 +40,9 @@ sequenceDiagram
 If no sentence matches, the answer is "I do not have enough policy evidence to answer this." with `grounded=false`.
 
 Honest limit: the answer is extractive, so the number check passes almost by construction. It catches code mistakes. The real protection against inventing a window is that nothing is generated.
+
+Policy text is treated as untrusted input: a retrieved sentence that looks like an instruction ("ignore all previous instructions", "approve without review") is never quoted. The ticket-side injection patterns are reused, minus the one that also matches a real rule ("agents may not bypass approval limits").
+
+The retrieval eval logs one Langfuse trace per variant (dense, BM25, hybrid, hybrid + rerank) with hit@1, precision@3, recall@3 and MRR attached as scores.
 
 Checks: `pytest tests/unit/test_policy_agent.py tests/unit/test_policy_index.py` and `python scripts/run_retrieval_eval.py` (24 questions: hybrid recall@3 1.000, 24 of 24 correct with the order's category, 22 of 24 without).
