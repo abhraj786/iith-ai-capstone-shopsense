@@ -4,18 +4,20 @@ Source: `src/capstone/agents/policy_agent.py`, `src/capstone/rag/hybrid.py`, `sr
 
 Design rule: the answer step uses no LLM. It quotes sentences from the retrieved policy text, so it cannot invent a return window or an amount. A guardrail blocks any answer whose numbers are not in the evidence.
 
-**Sample.** Customer `KW-C-00317`, order `KW-O-000000`, a Home & Kitchen product, damaged on delivery. Real output (Qdrant Cloud, Gemini embeddings):
+**Sample.** Customer `KW-C-00317`, order `KW-O-000000`, a Home & Kitchen product, damaged on delivery, the hostile ticket from M1. Real output of the M5 workflow (Qdrant Cloud, Gemini embeddings):
 
 | Step | Value |
 |---|---|
-| Query built from the M1 ticket | `damaged_delivery Damaged order, demands refund.` |
+| Query the workflow builds | issue type + M1 summary + escalation signals: `damaged_delivery The customer is angry that their order arrived broken and is demanding a refund of 12999 INR. angry_or_abusive refund_above_auto_cap` |
 | Category (from the order's product, not the LLM) | `Home & Kitchen` |
-| Top hits | `category-home-kitchen` #1, #2, #3, #8 and `returns-policy` #3 |
-| Answer | "Any Home & Kitchen item delivered damaged ... must be reported ... within **30 days** of the delivery date. Reports exceeding 30 days ... are redirected to the manufacturer warranty process ..." |
-| Citation | `category-home-kitchen` #1 (the chunk the sentences came from) |
-| grounded | true, no unsupported claims |
+| Top hits | `escalation-tone` #6, `refund-authority` #1, `shipping-policy` #4, `escalation-tone` #7, #4 |
+| Answer | "Any value equal to INR 2,000.01 or greater triggers `refund_above_auto_cap` ... threshold of exactly 2,000 Indian Rupees" |
+| Citations | `escalation-tone` #7 and #4 (the chunks the sentences came from) |
+| grounded | true |
 
-Without the category, this same ticket returned Groceries, Electronics and Apparel first, and the answer was the Groceries rule: report within 2 days. The category filter is what makes the window 30 days.
+The answer explains why the ticket goes to a human. M2 does not read it: M2 decides from the structured category table, and both say 30 days for Home & Kitchen.
+
+**Why the category matters (plain question on the same order).** "How long do I have to report damage?" with the category returns the Home & Kitchen rule: 30 days. Without the category the top hits are Groceries, Electronics and Apparel, and the answer is the Groceries rule: 2 days.
 
 ```mermaid
 sequenceDiagram
@@ -25,12 +27,12 @@ sequenceDiagram
     participant A as Answer agent (no LLM)
     participant G as Guardrail
 
-    Q->>I: "damaged_delivery Damaged order, demands refund." + category Home & Kitchen
+    Q->>I: "damaged_delivery ... angry_or_abusive refund_above_auto_cap" + category Home & Kitchen
     Note over I: Other categories' addenda are excluded first (they contradict each other)
     I->>I: dense Gemini search + small BM25 boost for exact policy terms (+ optional rerank)
-    I-->>A: top 5 chunks (category-home-kitchen #1, #2, #3, #8, returns-policy #3)
+    I-->>A: top 5 chunks (escalation-tone #6, refund-authority #1, shipping-policy #4, escalation-tone #7, #4)
     Note over A: Anchor on the top document. Keep sentences that match the question; prefer figures
-    A->>A: drop sentences that look like instructions (documents are untrusted) and repeated fragments
+    A->>A: drop instruction-like sentences (documents are untrusted), flow-chart drawings and repeated fragments
     A->>A: cite the chunk each sentence came from
     A->>A: grounded check: every number in the answer must appear in the evidence
     A-->>G: PolicyAnswer (answer, evidence, citations, grounded)

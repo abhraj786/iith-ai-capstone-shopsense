@@ -13,6 +13,7 @@ from capstone.schemas.policy import PolicyAnswer, PolicyCitation
 
 NUMBER = re.compile(r"\b\d[\d,]*(?:\.\d+)?\b")
 SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+|(?=\* \*\*)|(?=### )")
+DIAGRAM_ART = re.compile(r"[─│├└┌┐┘┬┴┼═║]|-{2,}>|={2,}>")  # flow-chart drawings in the source are not sentences
 ANSWER_PREFIX = "Based on the retrieved policy evidence:"
 
 
@@ -33,7 +34,7 @@ def _sentences(text: str) -> list[str]:
     parts = [p.strip(" -*#") for p in SENTENCE_SPLIT.split(text) if p.strip(" -*#")]
     # Skip document front matter (title / reference block) and overlong run-ons.
     return [p for p in parts if len(p.split()) >= 5 and "Document Reference" not in p and len(p) <= 400
-            and not any(rx.search(p) for rx in DOC_INJECTION)]
+            and not any(rx.search(p) for rx in DOC_INJECTION) and not DIAGRAM_ART.search(p)]
 
 
 def _stem(term: str) -> str:

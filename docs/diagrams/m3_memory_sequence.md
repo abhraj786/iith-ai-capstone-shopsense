@@ -50,6 +50,8 @@ sequenceDiagram
     S-->>T: context: ticket_count 8, 5 recent tickets, rolling summary
 ```
 
+Where the write happens: in the multi-agent team (M6) and the API the ticket is saved after M2 decides, together with the action. In the M5 LangGraph workflow the memory node runs earlier, before the policy and action steps, so it saves the ticket without an action.
+
 If the LLM fails, the ticket is still handled, the raw tickets stay on disk, and the same tickets are retried on the next write.
 A message re-sent on the same day and channel is not counted as a new contact, so re-running a demo cannot escalate itself.
 

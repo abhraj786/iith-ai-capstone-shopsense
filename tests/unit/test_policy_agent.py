@@ -81,3 +81,10 @@ def test_groundedness_metric_catches_invented_sentence_and_wrong_citation():
     assert ev._groundedness(Stub(["Items must be reported within 90 days of delivery."], cite), chunks, case)["answers_fully_grounded"] == "0/1"
     other = [PolicyCitation(document_slug="other", title="t", chunk_id=9)]
     assert ev._groundedness(Stub(quoted, other), chunks, case)["answers_fully_grounded"] == "0/1"
+
+
+def test_flowchart_drawings_in_policy_text_are_not_quoted():
+    from capstone.agents.policy_agent import _sentences
+
+    text = "Any value equal to INR 2,000.01 or greater triggers the cap. \u2500\u2500\u2500\u2500\u2500\u2500> [refund_approver] (refund_above_auto_cap) \u251c\u2500\u2500> Account Marked Return Abuse?"
+    assert _sentences(text) == ["Any value equal to INR 2,000.01 or greater triggers the cap."]
