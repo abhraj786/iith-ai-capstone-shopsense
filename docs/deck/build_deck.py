@@ -517,28 +517,22 @@ s = new_slide("M8 and results: honest limits, and the five-minute demo", "Module
 table(s, 0.6, 1.5, 4.6, [
     ["Check", "Result"],
     ["Unit tests (fresh clone)", "98 passed"],
-    ["M8 golden, stored", "20 / 20"],
-    ["M8 golden, live Gemini", "20 / 20"],
-    ["M4 recall@3, hybrid", "1.000"],
-    ["M8 components (4 x 5 items)", "1.0 / judge 0.64"],
-    ["M1 escalation recall", "0.82"],
+    ["M8 golden tickets, stored and live", "20 / 20"],
+    ["M8 components: rules / judge", "1.0 / 0.64"],
     ["M1 intent accuracy", "0.72 (target 0.8)"],
-], [3.0, 1.6], size=11, row_h=0.34)
+], [3.0, 1.6], size=11, row_h=0.36)
 label(s, 5.45, 1.45, 3.7, 0.3, "FOUND BY RUNNING IT, THEN FIXED", size=10, bold=True, color=TEAL)
-label(s, 5.45, 1.75, 3.7, 2.0, ["- Hash 'embeddings': Gemini + BM25 (recall@3 1.0)", "- Wrong category's window: category filter (22 to 24 of 24)", "- Hinglish injection missed: regex screen", "- Refund could run before the reviewer: reviewer now first"], size=11, space=3)
+label(s, 5.45, 1.75, 3.7, 1.6, ["- Hinglish injection missed: regex screen", "- Refund could run before the reviewer: reviewer now first", "- Judge found weak retrieval on safety and double charge"], size=11, space=3)
 label(s, 9.35, 1.45, 3.4, 0.3, "NOT COVERED", size=10, bold=True, color=RED)
-label(s, 9.35, 1.75, 3.4, 2.4, ["- No PII redaction in traces; no auth on /chat", "- Injection regex can be evaded", "- Small corpus: retrieval numbers optimistic", "- Supervisor has a menu, not the lab's free star", "- Docker image written, not built"], size=11, space=3)
-box(s, 5.45, 3.2, 7.3, 1.05, fill=LIGHT, line=GREY)
-label(s, 5.55, 3.22, 7.1, 1.0, [("M8 package, checked against its lab", {"bold": True, "color": TEAL, "size": 10}), "FastAPI /chat and /health, Dockerfile, Postman run for A, B, C on localhost. Blocked ticket: 200 + human review; bad input: 422.", "Judge found weak retrieval the keyword check missed (product safety, double charge): context relevance 0.64."], size=10, space=1)
-table(s, 0.6, 4.35, 12.15, [
+label(s, 9.35, 1.75, 3.4, 1.6, ["- No auth on /chat, no PII redaction", "- Injection regex can be evaded", "- Docker image written, not built"], size=11, space=3)
+table(s, 0.6, 3.75, 12.15, [
     ["Demo step", "Command", "What the audience sees"],
     ["1  Tests", "python -m pytest tests -q", "98 passed"],
-    ["2  Milestones", "python demo_milestones.py --real", "M1 to M8 on live LLM, Qdrant Cloud, LangFuse"],
-    ["3  Golden eval", "python scripts/run_m8_golden_eval.py --live", "20 of 20 + run_m8_component_eval --judge scores"],
-    ["4  API", "uvicorn capstone.api:app, then the Postman collection", "/chat for tickets A, B, C; empty text gives 422"],
-], [1.8, 5.6, 4.75], size=10.5, row_h=0.3)
-box(s, 0.6, 6.0, 12.15, 0.95, fill=NAVY)
-label(s, 0.8, 6.03, 11.8, 0.9, [("Let the model read, let code decide. A fooled model still cannot move money.", {"size": 14, "bold": True, "color": WHITE}),
+    ["2  Golden eval", "python scripts/run_m8_golden_eval.py --live", "20 of 20, with guardrail codes"],
+    ["3  API", "uvicorn capstone.api:app, then the Postman collection", "Tickets A, B, C; empty text gives 422"],
+], [1.8, 5.6, 4.75], size=10.5, row_h=0.34)
+box(s, 0.6, 5.5, 12.15, 0.95, fill=NAVY)
+label(s, 0.8, 5.53, 11.8, 0.9, [("Let the model read, let code decide. A fooled model still cannot move money.", {"size": 14, "bold": True, "color": WHITE}),
     ("Measure, then fix. Every claim is runnable: 98 tests, 40 golden items.   github.com/abhraj786/iith-ai-capstone-shopsense", {"size": 12, "bold": True, "color": WHITE})], space=3)
 
 
