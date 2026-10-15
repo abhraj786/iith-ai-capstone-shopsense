@@ -248,7 +248,7 @@ for x, col, head, l1, l2, l3 in [
 
 # M3 memory story + sequence
 s = new_slide("M3: a notebook that spots repeats and keeps facts", "Module 3  |  customer memory, same customer over eight tickets",
-    "Story to tell. She is the angry customer from M1 and M2. 16 Jul: the hostile ticket arrives, memory is empty, so it is contact 1 and gets written down. 17 Jul: she writes again by email, calmer, and adds that parcels should be left at the back gate, the doorbell is broken and she is allergic to peanuts. Memory finds one earlier contact, so this is contact 2. 18 Jul: she asks for an update in chat and never says it is her third message. Memory finds two earlier contacts (16 Jul twitter, 17 Jul email), so code sets contact_number to 3 and adds repeat_contact. M2's rules then send it to a human. Then five tracking questions arrive about other orders. On the eighth ticket, the three oldest are condensed by the LLM, merged with the previous summary, and the summary still holds the order, the back gate, the broken doorbell and the peanut allergy. Three safety points: memory never decides, it only supplies a count that code turns into a flag; the raw tickets are never deleted; if the LLM fails, the ticket is still handled and the same tickets are retried. A message re-sent on the same day and channel is not a new contact, so re-running a demo cannot escalate itself. Checks: pytest tests/unit/test_memory.py tests/unit/test_intake.py and python scripts/run_memory_recall_check.py (real LLM plants a fact and fails if the summary loses it). Full diagram: docs/diagrams/m3_memory_sequence.md.")
+    "Story to tell. She is the angry customer from M1 and M2. 16 Jul: the hostile ticket arrives, memory is empty, so it is contact 1 and gets written down. 17 Jul: she writes again by email, calmer, and adds that parcels should be left at the back gate, the doorbell is broken and she is allergic to peanuts. Memory finds one earlier contact, so this is contact 2. 18 Jul: she asks for an update in chat and never says it is her third message. Memory finds two earlier contacts (16 Jul twitter, 17 Jul email), so code sets contact_number to 3 and adds repeat_contact. M2's rules then send it to a human. Then five tracking questions arrive about other orders. On the eighth ticket, the three oldest are condensed by the LLM, merged with the previous summary, and the summary still holds the order, the back gate, the broken doorbell and the peanut allergy. Memory types: working is the live ticket plus the newest 5 (steps 1, 4, 5); episodic is the event written per ticket (2, 3, 6); semantic is the known facts and the condensed summary (6, 7, 8); procedural, meaning how to act, is not here, it is the M4 policy index and the M2 rules. Three safety points: memory never decides, it only supplies a count that code turns into a flag; the raw tickets are never deleted; if the LLM fails, the ticket is still handled and the same tickets are retried. A message re-sent on the same day and channel is not a new contact, so re-running a demo cannot escalate itself. Checks: pytest tests/unit/test_memory.py tests/unit/test_intake.py and python scripts/run_memory_recall_check.py (real LLM plants a fact and fails if the summary loses it). Full diagram: docs/diagrams/m3_memory_sequence.md.")
 cx = [1.2, 2.6, 4.0, 5.4]
 names = [("Ticket", GREY), ("Memory store", NAVY), ("Customer file", NAVY), ("LLM summary", AMBER)]
 for x, (n, c) in zip(cx, names):
@@ -268,9 +268,21 @@ msg(2, 2, 1, "3 Found: 2", color=GREEN)
 box(s, 1.5, ry(3) + 0.05, 3.9, 0.4, fill=PINK, line=RED)
 label(s, 1.52, ry(3) + 0.1, 3.86, 0.3, "4 Code: contact 3, add repeat_contact", size=10, bold=True, color=RED, align=PP_ALIGN.CENTER, space=0)
 msg(4, 1, 0, "5 Ticket + flag", color=GREEN)
-msg(5, 1, 2, "6 Save event")
+msg(5, 1, 2, "6 Save event + facts")
 msg(6, 1, 3, "7 Old tickets (8th)", color=AMBER)
 msg(7, 3, 1, "8 New summary", color=GREEN)
+MEM = {"W": ("WORKING", TEAL), "E": ("EPISODIC", NAVY), "S": ("SEMANTIC", GREEN)}
+def chip(i, kinds, x=5.75):
+    w = 0.52 if len(kinds) > 1 else 1.0
+    for k, ch in enumerate(kinds):
+        name, col = MEM[ch]
+        name = name[:3] if len(kinds) > 1 else name
+        xx = x + k * (w + 0.04) if len(kinds) > 1 else x + 0.04
+        box(s, xx, ry(i) + 0.1, w, 0.26, fill=col)
+        label(s, xx, ry(i) + 0.1, w, 0.26, name, size=8, bold=True, color=WHITE, align=PP_ALIGN.CENTER, space=0)
+for i, k in enumerate(["W", "E", "E", "W", "W", "ES", "S", "S"]):
+    chip(i, k)
+label(s, 0.6, 6.06, 12.1, 0.25, "Memory types:  WORKING = live ticket + newest 5   |   EPISODIC = what happened   |   SEMANTIC = known facts + summary   |   PROCEDURAL (policy index, M2 rules) lives outside this store", size=9.5, color=GREY, space=0)
 label(s, 6.85, 1.5, 5.9, 0.3, "ONE CUSTOMER, EIGHT TICKETS (REAL RUN)", size=11, bold=True, color=TEAL)
 table(s, 6.85, 1.85, 5.9, [
     ["Date", "Channel", "Earlier", "Contact", "What memory did"],
@@ -282,7 +294,7 @@ table(s, 6.85, 1.85, 5.9, [
 box(s, 6.85, 4.5, 5.9, 1.5, fill=LIGHT)
 label(s, 6.95, 4.54, 5.7, 0.3, "AFTER THE 8TH TICKET: THE 3 OLDEST ARE CONDENSED", size=10, bold=True, color=TEAL, space=0)
 label(s, 6.95, 4.82, 5.7, 1.15, "Customer awaiting replacement and 12999 refund for damaged delivery on order KW-O-000000; checked status on 2026-07-18. Preferences: leave parcels at the back gate due to a broken doorbell. Safety: allergic to peanuts.", size=11, space=0)
-label(s, 0.6, 6.3, 12.1, 0.6, "The notebook never decides. It supplies one number; code turns it into a flag; M2's rules act on it. Newest 5 stay word-for-word, raw tickets are never deleted.", size=14, bold=True, color=NAVY)
+label(s, 0.6, 6.4, 12.1, 0.6, "The notebook never decides. It supplies one number; code turns it into a flag; M2's rules act on it. Newest 5 stay word-for-word, raw tickets are never deleted.", size=14, bold=True, color=NAVY)
 
 # M3 + M4
 s = new_slide("M3 and M4: remember the customer, answer from the right policy", "Modules 3 and 4  |  memory and policy RAG",

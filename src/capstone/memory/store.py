@@ -17,6 +17,7 @@ from capstone.schemas.actions import ActionProposal
 from capstone.schemas.intake import SupportTicket
 from capstone.settings import PROJECT_ROOT, get_settings
 
+MAX_KNOWN_FACTS = 20
 SUMMARY_AFTER_TICKETS = 5
 RECENT_TICKET_LIMIT = 5  # tickets kept verbatim (working memory); older ones are condensed
 
@@ -51,6 +52,7 @@ class CustomerMemoryStore:
                 "tickets": [],
                 "history_summary": "",
                 "summarized_upto": 0,
+                "known_facts": [],
                 "last_updated_at": None,
             }
         memory = json.loads(path.read_text())
@@ -64,6 +66,7 @@ class CustomerMemoryStore:
         memory.setdefault("tickets", [])
         memory.setdefault("history_summary", "")
         memory.setdefault("summarized_upto", 0)
+        memory.setdefault("known_facts", [])
         return memory
 
     def save(self, memory: dict[str, Any]) -> dict[str, Any]:
@@ -98,6 +101,7 @@ class CustomerMemoryStore:
             event["requires_human"] = action.requires_human
             event["tool_name"] = action.tool_name
         memory.setdefault("tickets", []).append(event)
+        self._remember_facts(memory, ticket.customer_facts, received_at)
         self._condense_old_tickets(memory)
         memory["rolling_summary"] = self._rolling(memory)
         return self.save(memory)
@@ -118,6 +122,16 @@ class CustomerMemoryStore:
         }
         seen.discard((received_at, channel))
         return len(seen)
+
+    def _remember_facts(self, memory: dict[str, Any], facts: list[str], learned_on: str | None) -> None:
+        """Semantic memory: lasting facts the customer stated, kept apart from the ticket history."""
+        known = memory.setdefault("known_facts", [])
+        have = {k["fact"].lower() for k in known}
+        for fact in facts:
+            if fact.lower() not in have:
+                known.append({"fact": fact, "learned_on": learned_on})
+                have.add(fact.lower())
+        del known[:-MAX_KNOWN_FACTS]
 
     def _condense_old_tickets(self, memory: dict[str, Any]) -> None:
         """Keep the newest tickets verbatim and fold older ones into the history summary.
@@ -141,7 +155,9 @@ class CustomerMemoryStore:
     def _rolling(self, memory: dict[str, Any]) -> str:
         counts = self._summarize(memory.get("tickets", []), memory.get("preferences", {}))
         history = memory.get("history_summary")
-        return f"{counts} Earlier history, condensed: {history}" if history else counts
+        text = f"{counts} Earlier history, condensed: {history}" if history else counts
+        facts = "; ".join(k["fact"] for k in memory.get("known_facts", []))
+        return f"{text} Known facts: {facts}." if facts else text
 
     def customer_context(self, customer_ref: str, limit: int = 5) -> dict[str, Any]:
         memory = self.load(customer_ref)
@@ -151,6 +167,7 @@ class CustomerMemoryStore:
             "preferences": memory.get("preferences", {}),
             "rolling_summary": memory.get("rolling_summary"),
             "history_summary": memory.get("history_summary", ""),
+            "known_facts": memory.get("known_facts", []),
             "memory_types": memory.get("memory_types", {}),
             "recent_tickets": tickets[-limit:],
             "ticket_count": len(tickets),

@@ -16,6 +16,7 @@ from capstone.settings import PROJECT_ROOT
 ORDER_REF = re.compile(r"\bKW-O-\d{6}\b", re.IGNORECASE)
 NEEDS_ORDER = set(IssueType) - {IssueType.product_information, IssueType.other, IssueType.complaint}
 MAX_TEXT_CHARS = 6000
+MAX_FACTS, MAX_FACT_CHARS = 3, 120
 # Deterministic injection screen. It runs in addition to the model's own flag: ticket text is
 # attacker-controlled, so detection must not depend on the model noticing the attack.
 INJECTION_PATTERNS = [re.compile(p, re.IGNORECASE) for p in (
@@ -73,7 +74,20 @@ def parse_ticket(client: LLMClient, raw_text: str, channel: str | None = None,
         ticket.escalation_signals.append(EscalationSignal.refund_above_auto_cap)
     # Counting contacts against the policy threshold is also arithmetic, so code decides it.
     apply_contact_count(ticket, prior_contacts(ticket) if prior_contacts else 0, repeat_contact_threshold)
+    ticket.customer_facts = clean_facts(ticket.customer_facts, ticket.prompt_injection_suspected)
     return ticket
+
+
+def clean_facts(facts: list[str], injection_suspected: bool) -> list[str]:
+    """Facts go into long-term memory, so keep them short, few, and free of injected instructions."""
+    if injection_suspected:
+        return []
+    cleaned: list[str] = []
+    for fact in facts:
+        fact = " ".join(fact.split())[:MAX_FACT_CHARS]
+        if fact and not looks_like_injection(fact) and fact.lower() not in {f.lower() for f in cleaned}:
+            cleaned.append(fact)
+    return cleaned[:MAX_FACTS]
 
 
 def apply_contact_count(ticket: SupportTicket, prior: int, threshold: int | None) -> SupportTicket:

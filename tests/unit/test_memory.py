@@ -127,3 +127,18 @@ def test_prior_contacts_counts_same_order_and_issue_and_ignores_replays(tmp_path
     assert store.prior_contacts("C3", "KW-O-000777", "missing_item") == 0
     assert store.prior_contacts("C3", None, "refund_request") == 0
     assert store.prior_contacts("new-customer", "KW-O-000777", "refund_request") == 0
+
+
+def test_lasting_facts_are_saved_as_semantic_memory_and_deduplicated(tmp_path):
+    store = CustomerMemoryStore(tmp_path)
+    t = _ticket()
+    t.customer_facts = ["Leave parcels at the back gate", "Allergic to peanuts"]
+    store.append_ticket("C4", t, received_at="2026-07-17")
+    t2 = _ticket()
+    t2.customer_facts = ["leave parcels at the back gate", "Prefers phone calls"]  # first one is a repeat
+    store.append_ticket("C4", t2, received_at="2026-07-18")
+    ctx = store.customer_context("C4")
+    assert [k["fact"] for k in ctx["known_facts"]] == [
+        "Leave parcels at the back gate", "Allergic to peanuts", "Prefers phone calls"]
+    assert ctx["known_facts"][0]["learned_on"] == "2026-07-17"
+    assert "Known facts: Leave parcels at the back gate; Allergic to peanuts" in ctx["rolling_summary"]
