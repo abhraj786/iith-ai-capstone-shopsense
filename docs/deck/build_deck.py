@@ -298,7 +298,7 @@ label(s, 0.6, 6.4, 12.1, 0.6, "The notebook never decides. It supplies one numbe
 
 # M4 policy RAG, sequence + sample
 s = new_slide("M4: answers are quoted from the right policy", "Module 4  |  grounded policy RAG, same customer and order",
-    "Same sample: order KW-O-000000 is a Home & Kitchen product, damaged on delivery. The query is built from the M1 ticket and the category comes from the order, not from the LLM. Step 2 is the key one: the category addenda contradict each other (apparel 45 days, Home & Kitchen 30), so other categories are excluded before searching. Without the category the same question returned apparel, furniture and groceries; with it, the answer says 30 days. Search is dense Gemini similarity with a small BM25 boost for exact policy terms; dense alone has the best hit@1 but hybrid reaches recall@3 of 1.0. The answer step uses no LLM: it quotes policy sentences, skips any that look like instructions (policy text is untrusted), drops fragments that repeat another sentence, and cites the chunk each sentence came from. A guardrail blocks any answer whose numbers are not in the evidence. Groundedness is also measured: every quoted sentence must appear word for word in a chunk the answer cites, 24 of 24, sentence groundedness 1.0, with a unit test showing the metric fails on an invented sentence. Honest limit: because the answer is extractive, the plain grounded flag passes almost by construction, which is why this stricter check exists; the real protection is that nothing is generated. Checks: pytest tests/unit/test_policy_agent.py tests/unit/test_policy_index.py and python scripts/run_retrieval_eval.py (24 questions; 24 of 24 with the category, 22 without). Full diagram: docs/diagrams/m4_policy_sequence.md.")
+    "Same sample: order KW-O-000000 is a Home & Kitchen product, damaged on delivery. The query is built from the M1 ticket and the category comes from the order, not from the LLM. Step 2 is the key one: the category addenda contradict each other (Groceries 2 days, Apparel 45, Home & Kitchen 30), so other categories are excluded before searching. Without the category, this very ticket pulled the Groceries rule and would have said 2 days; with it, the answer says 30 days. Search is dense Gemini similarity with a small BM25 boost for exact policy terms; dense alone has the best hit@1 but hybrid reaches recall@3 of 1.0. The answer step uses no LLM: it quotes policy sentences, skips any that look like instructions (policy text is untrusted), drops fragments that repeat another sentence, and cites the chunk each sentence came from. A guardrail blocks any answer whose numbers are not in the evidence. Groundedness is also measured: every quoted sentence must appear word for word in a chunk the answer cites, 24 of 24, sentence groundedness 1.0, with a unit test showing the metric fails on an invented sentence. Honest limit: because the answer is extractive, the plain grounded flag passes almost by construction, which is why this stricter check exists; the real protection is that nothing is generated. Checks: pytest tests/unit/test_policy_agent.py tests/unit/test_policy_index.py and python scripts/run_retrieval_eval.py (24 questions; 24 of 24 with the category, 22 without). Full diagram: docs/diagrams/m4_policy_sequence.md.")
 cx = [1.2, 2.75, 4.3, 5.7]
 names = [("Query", GREY), ("Policy index", NAVY), ("Answer agent", NAVY), ("Guardrail", AMBER)]
 for x, (n, c) in zip(cx, names):
@@ -323,21 +323,22 @@ note(4, 3.3, 2.0, "5 Quote, skip injected")
 note(5, 3.3, 2.0, "6 Cite, check numbers")
 msg(6, 2, 3, "7 Answer", color=AMBER)
 msg(7, 3, 0, "8 Allowed or blocked", color=GREEN)
-label(s, 6.85, 1.5, 5.9, 0.3, "SAME SAMPLE, REAL OUTPUT", size=11, bold=True, color=TEAL)
-box(s, 6.85, 1.85, 5.9, 1.6, fill=LIGHT)
-label(s, 6.95, 1.9, 5.7, 1.5, [("Query: damaged_delivery Damaged order, demands refund.", {"bold": True}),
-    "Category: Home & Kitchen (from the order's product)",
-    "Answer: damaged items must be reported within 30 days of delivery; later reports go to the manufacturer warranty.",
-    ("Cited: category-home-kitchen chunk 1  |  grounded: true", {"bold": True, "color": GREEN})], size=11, space=3)
-table(s, 6.85, 3.65, 5.9, [
-    ["24 questions", "hit@1", "recall@3", "Answers right"],
-    ["Dense only", "0.917", "0.979", "-"],
-    ["Hybrid fused", "0.875", "1.000", "-"],
-    ["Hybrid, no category", "-", "-", "22 / 24"],
-    ["Hybrid + order category", "-", "-", "24 / 24"],
-    ["Groundedness (quoted = cited)", "-", "-", "24 / 24"],
-], [2.5, 1.0, 1.1, 1.3], size=11, row_h=0.32)
-label(s, 0.6, 5.95, 12.1, 0.4, "No LLM writes the answer, so a window or amount cannot be invented. Without the category: the 45-day apparel window.", size=12, bold=True, color=NAVY)
+label(s, 6.85, 1.5, 5.9, 0.3, "SAME TICKET AS M1-M3: ORDER KW-O-000000, HOME & KITCHEN", size=11, bold=True, color=TEAL)
+box(s, 6.85, 1.85, 5.9, 0.95, fill=RGBColor(0xE6, 0xF4, 0xEA), line=GREEN)
+label(s, 6.95, 1.88, 5.7, 0.9, [("WITH the order's category (what we do)", {"bold": True, "color": GREEN}),
+    "Report damage within 30 days of delivery; later goes to the manufacturer warranty. Cited: category-home-kitchen chunk 1."], size=10.5, space=2)
+box(s, 6.85, 2.9, 5.9, 0.95, fill=PINK, line=RED)
+label(s, 6.95, 2.93, 5.7, 0.9, [("WITHOUT it, same ticket (real output)", {"bold": True, "color": RED}),
+    "Top hits: Groceries, Electronics, Apparel. Answer: report within 2 days (the Groceries rule). Wrong for a Rs 12,999 home item."], size=10.5, space=2)
+label(s, 6.85, 3.95, 5.9, 0.3, "WHY WE CAN TRUST IT: 24 TEST QUESTIONS", size=10, bold=True, color=TEAL)
+table(s, 6.85, 4.25, 5.9, [
+    ["Test", "Result"],
+    ["Right document in top 3 (hybrid)", "24 / 24  (dense only 0.98)"],
+    ["Right answer, no category", "22 / 24"],
+    ["Right answer, with order category", "24 / 24"],
+    ["Quoted sentences found in cited policy", "24 / 24"],
+], [3.5, 2.4], size=10.5, row_h=0.3)
+label(s, 0.6, 5.95, 12.1, 0.4, "No LLM writes the answer, so a window or amount cannot be invented. The order's category picks the right rulebook.", size=12, bold=True, color=NAVY)
 runbar(s, 6.45, ["pytest tests/unit/test_policy_agent.py tests/unit/test_policy_index.py", "python scripts/run_retrieval_eval.py"])
 
 # 6 M5 + M6

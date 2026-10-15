@@ -15,7 +15,7 @@ Design rule: the answer step uses no LLM. It quotes sentences from the retrieved
 | Citation | `category-home-kitchen` #1 (the chunk the sentences came from) |
 | grounded | true, no unsupported claims |
 
-Without the category, the same question returned apparel (45 days), furniture, groceries and sports addenda. The category filter is what makes the window 30 days and not 45.
+Without the category, this same ticket returned Groceries, Electronics and Apparel first, and the answer was the Groceries rule: report within 2 days. The category filter is what makes the window 30 days.
 
 ```mermaid
 sequenceDiagram
