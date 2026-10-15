@@ -1,5 +1,7 @@
 # M7: tracing and reliability around one ticket
 
+![M7 sequence](m7_observability_reliability_sequence.png)
+
 Sample (same ticket B as the deck): "Hi, where is my order KW-O-000010?", customer KW-C-00194, 2025-10-10.
 
 ```mermaid
