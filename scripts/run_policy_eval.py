@@ -2,7 +2,6 @@
 
 import argparse
 import json
-from pathlib import Path
 
 from capstone.agents.policy_agent import PolicyAgent
 from capstone.rag.hybrid import HybridPolicyRetriever

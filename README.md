@@ -147,34 +147,6 @@ If the LLM provider returns a temporary capacity error, retry or set another Lit
 CAPSTONE_LLM_MODEL=<provider>/<model-name>
 ```
 
-## Setup
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[dev]"
-```
-
-For live LLM evaluation, copy `.env.example` to `.env` and add your provider key:
-
-```bash
-cp .env.example .env
-```
-
-Do not commit `.env`.
-
-## Run Tests
-
-```bash
-python -m pytest tests/unit
-```
-
-Expected current result:
-
-```text
-98 passed
-```
-
 ## Run Local Workbench UI
 
 Use the workbench to test the milestone flow from a browser:

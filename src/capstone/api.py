@@ -19,7 +19,6 @@ from capstone.rag.policy_index import PolicyIndex
 from capstone.schemas.actions import ActionProposal, RecommendedAction
 from capstone.schemas.intake import SupportTicket
 from capstone.team.multi_agent import MultiAgentTeam
-from capstone.settings import PROJECT_ROOT, get_settings
 from capstone.tools.lookups import order_category
 from capstone.tools import actions
 from capstone.tools.repository import get_repository

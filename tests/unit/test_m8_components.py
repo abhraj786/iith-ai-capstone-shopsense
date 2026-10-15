@@ -10,7 +10,7 @@ from capstone.schemas.actions import ActionProposal, RecommendedAction
 from capstone.schemas.intake import SupportTicket
 from capstone.schemas.policy import PolicyAnswer
 from capstone.settings import Settings
-from scripts.run_m8_component_eval import build, main
+from scripts.run_m8_component_eval import main
 
 
 def test_component_scorers():
