@@ -150,8 +150,14 @@ arrow(s, 6.2, 4.45, 6.9, 4.45)
 node(s, 10.3, 3.45, 2.5, 0.95, "Auto-execute", "safe and grounded", fill=RGBColor(0x2E, 0x7D, 0x32))
 node(s, 10.3, 4.6, 2.5, 0.95, "Human review", "with reason codes", fill=AMBER, fg=INK)
 arrow(s, 9.5, 4.3, 10.3, 3.95); arrow(s, 9.5, 4.6, 10.3, 5.05)
-box(s, 0.5, 5.9, 12.3, 0.8, fill=LIGHT)
-label(s, 0.7, 6.0, 11.9, 0.6, [("Wrapped by:  M5 LangGraph (human interrupt)  |  M6 supervised agent team  |  M7 tracing + fallback  |  M8 /chat + golden eval", {"size": 14, "bold": True, "color": NAVY})])
+label(s, 0.5, 1.4, 12.3, 0.4, "Wrapped by:  M5 LangGraph (human interrupt)  |  M6 supervised agent team  |  M7 tracing + fallback  |  M8 /chat + golden eval", size=12, bold=True, color=NAVY)
+label(s, 0.5, 5.62, 12.3, 0.3, "THREE TICKETS WE FOLLOW (A: KW-O-000000, B: KW-O-000010, C: KW-O-000950), SAME CODE FOR ALL", size=10, bold=True, color=TEAL)
+table(s, 0.5, 5.9, 12.3, [
+    ["Ticket", "M1 reads", "M2 plans, M4 grounds", "M5 workflow", "M6 route"],
+    ["A  Hostile, Rs 12,999", "angry, injection, above cap", "human: refund_above_auto_cap", "pauses for approval", "full, then human"],
+    ["B  Plain tracking", "calm, track_order, no signals", "track_shipment, no human", "auto-resolves", "fast_track, no policy"],
+    ["C  Court threat", "angry, legal_or_regulatory", "human: legal_or_regulatory", "pauses for approval", "escalate_now, human"],
+], [2.4, 2.9, 3.0, 1.9, 2.1], size=9.5, row_h=0.26)
 
 # M1 sequence
 s = new_slide("M1: what is passed at each step", "Module 1  |  intake sequence with real messages",
@@ -338,7 +344,7 @@ table(s, 6.85, 4.25, 5.9, [
     ["Right answer, with order category", "24 / 24"],
     ["Quoted sentences found in cited policy", "24 / 24"],
 ], [3.5, 2.4], size=10.5, row_h=0.3)
-label(s, 0.6, 5.95, 12.1, 0.4, "No LLM writes the answer, so a window or amount cannot be invented. The order's category picks the right rulebook.", size=12, bold=True, color=NAVY)
+label(s, 0.6, 5.95, 12.1, 0.4, "No LLM writes the answer, so nothing can be invented. The order's category picks the rulebook. Ticket B (tracking) needs no policy, so M6 skips it; ticket C cites escalation-tone.", size=12, bold=True, color=NAVY)
 runbar(s, 6.45, ["pytest tests/unit/test_policy_agent.py tests/unit/test_policy_index.py", "python scripts/run_retrieval_eval.py"])
 
 # 6 M5 workflow sequence (+ M6 strip)
@@ -383,6 +389,8 @@ table(s, 6.85, 4.08, 5.9, [
     ["State survives a restart", "SqliteSaver, tested"],
     ["Irreversible step runs once, after approval", "own node, runs once"],
 ], [3.5, 2.4], size=10.5, row_h=0.28)
+box(s, 6.85, 5.65, 5.9, 0.7, fill=LIGHT, line=GREY)
+label(s, 6.95, 5.68, 5.7, 0.65, "Tickets B and C: B auto-resolves with no pause (5 checkpoints). C pauses at legal_or_regulatory; ops_manager approves, flag_for_human is filed (6 checkpoints).", size=10, color=INK, space=0)
 runbar(s, 6.45, ["pytest tests/unit/test_workflow.py"])
 
 # M6 multi-agent team + MCP
@@ -416,10 +424,10 @@ msg(8, 4, 3, "9 Force human", color=RED)
 msg(9, 3, 5, "10 flag_for_human, KW-HQ-00002", color=AMBER)
 label(s, 7.6, 1.5, 5.15, 0.3, "SAME TICKET AS M1-M5, LIVE RUN OVER MCP", size=11, bold=True, color=TEAL)
 box(s, 7.6, 1.85, 5.15, 1.75, fill=RGBColor(0xE6, 0xF4, 0xEA), line=GREEN)
-label(s, 7.7, 1.88, 4.95, 1.7, [("Hostile ticket", {"bold": True, "color": GREEN}),
+label(s, 7.7, 1.88, 4.95, 1.7, [("Ticket A, hostile", {"bold": True, "color": GREEN}),
     "Supervisor: full (the only route code allows for it). Guardrails: prompt_injection_blocked, refund_above_auto_cap_blocked. Reviewer: human_review. Queue KW-HQ-00002, same on email. The Rs 12,999 refund was not issued.",
-    ("Two other live tickets", {"bold": True, "color": GREEN}),
-    "Plain tracking: fast_track, policy skipped. Court threat: escalate_now, straight to a human."], size=10, space=2)
+    ("Tickets B and C", {"bold": True, "color": GREEN}),
+    "B, plain tracking: fast_track, policy skipped, track_shipment. C, court threat: escalate_now, straight to a human."], size=10, space=2)
 label(s, 7.6, 3.7, 5.15, 0.3, "WHAT THE TEAM GUARANTEES", size=10, bold=True, color=TEAL)
 table(s, 7.6, 3.98, 5.15, [
     ["Guarantee", "How"],
