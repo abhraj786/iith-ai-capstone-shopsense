@@ -72,8 +72,12 @@ class FlakyGateway:
 
 def fake_client(ticket_payload: dict[str, Any] = TICKET_PAYLOAD) -> LLMClient:
     def completion(**kwargs):
+        payload = ticket_payload
+        if kwargs["response_format"].__name__ == "SupervisorDecision":  # offline stand-in for the router
+            plain = ticket_payload.get("issue_type") == "track_order" and not ticket_payload.get("escalation_signals")
+            payload = {"route": "fast_track" if plain else "full", "reason": "offline demo router"}
         return SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps(ticket_payload)))]
+            choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps(payload)))]
         )
 
     return LLMClient(Settings(llm_max_retries=0), completion=completion)
@@ -279,7 +283,8 @@ def demo_m6(real: bool) -> None:
         )
         show({
             "agents": [step.agent for step in result.steps],
-            "tool_transport": result.steps[3].summary,
+            "route": result.route,
+            "tool_transport": next(st.summary for st in result.steps if st.agent == "Order-Actions Agent"),
             "tool_name": result.action_proposal["tool_name"],
             "tool_result_transport": result.action_proposal["tool_result"].get("transport"),
             "decision": result.escalation_review["decision"],

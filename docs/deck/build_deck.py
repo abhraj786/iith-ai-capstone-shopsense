@@ -151,7 +151,7 @@ node(s, 10.3, 3.45, 2.5, 0.95, "Auto-execute", "safe and grounded", fill=RGBColo
 node(s, 10.3, 4.6, 2.5, 0.95, "Human review", "with reason codes", fill=AMBER, fg=INK)
 arrow(s, 9.5, 4.3, 10.3, 3.95); arrow(s, 9.5, 4.6, 10.3, 5.05)
 box(s, 0.5, 5.9, 12.3, 0.8, fill=LIGHT)
-label(s, 0.7, 6.0, 11.9, 0.6, [("Wrapped by:  M5 LangGraph (checkpoints, human interrupt)   |   M7 LangFuse tracing + retry/fallback   |   M8 FastAPI /chat + golden eval", {"size": 14, "bold": True, "color": NAVY})])
+label(s, 0.7, 6.0, 11.9, 0.6, [("Wrapped by:  M5 LangGraph (human interrupt)  |  M6 supervised agent team  |  M7 tracing + fallback  |  M8 /chat + golden eval", {"size": 14, "bold": True, "color": NAVY})])
 
 # M1 sequence
 s = new_slide("M1: what is passed at each step", "Module 1  |  intake sequence with real messages",
