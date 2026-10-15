@@ -134,31 +134,32 @@ s.notes_slide.notes_text_frame.text = "Open with the promise: routine tickets re
 
 # 3 Architecture
 s = new_slide("One pipeline: parse, look up, ground, plan, then gate", "End-to-end architecture",
-              "Walk left to right. The bottom band wraps everything: LangGraph orchestration, tracing, and the API. The red gate is the deterministic guardrail layer. 98 unit tests in total, 11 of them for M8.")
-y = 2.0
-xs = [0.5, 2.85, 5.2, 7.55]
-node(s, xs[0], y, 2.0, 1.1, "Customer message", "chat / email text", fill=GREY)
-node(s, xs[1], y, 2.0, 1.1, "M1 Intake", "LLM to SupportTicket", fill=NAVY)
-node(s, xs[2], y, 2.0, 1.1, "M3 Memory", "history, repeat count", fill=NAVY)
-node(s, xs[3], y, 2.0, 1.1, "M2/M6 Tools", "one gateway, MCP then Python", fill=NAVY)
-node(s, 9.9, y, 2.9, 1.1, "M4 Policy RAG", "Gemini embeddings + BM25", fill=NAVY)
-for a, b in zip(xs[:3], xs[1:]): arrow(s, a + 2.0, y + 0.55, b, y + 0.55)
-arrow(s, xs[3] + 2.0, y + 0.55, 9.9, y + 0.55)
-node(s, 3.0, 3.9, 3.2, 1.1, "M2 Action planner", "track / replace / refund / ask", fill=TEAL)
-node(s, 6.9, 3.9, 2.6, 1.1, "Guardrail gate", "cap, signals, injection", fill=RED)
-arrow(s, 11.3, y + 1.1, 11.3, 3.4); arrow(s, 11.3, 3.4, 4.6, 3.4); arrow(s, 4.6, 3.4, 4.6, 3.9)
-arrow(s, 6.2, 4.45, 6.9, 4.45)
-node(s, 10.3, 3.45, 2.5, 0.95, "Auto-execute", "safe and grounded", fill=RGBColor(0x2E, 0x7D, 0x32))
-node(s, 10.3, 4.6, 2.5, 0.95, "Human review", "with reason codes", fill=AMBER, fg=INK)
-arrow(s, 9.5, 4.3, 10.3, 3.95); arrow(s, 9.5, 4.6, 10.3, 5.05)
-label(s, 0.5, 1.4, 12.3, 0.4, "Wrapped by:  M5 LangGraph (human interrupt)  |  M6 supervised agent team  |  M7 tracing + fallback  |  M8 /chat + golden eval", size=12, bold=True, color=NAVY)
-label(s, 0.5, 5.62, 12.3, 0.3, "THREE TICKETS WE FOLLOW (A: KW-O-000000, B: KW-O-000010, C: KW-O-000950), SAME CODE FOR ALL", size=10, bold=True, color=TEAL)
-table(s, 0.5, 5.9, 12.3, [
+              "Walk left to right in one line. The chips under it wrap everything: LangGraph pause and resume, the supervised team, tracing, and the API with evaluation. The red gate is the deterministic guardrail layer. 98 unit tests in total, 11 of them for M8.")
+y, bw, step = 1.75, 1.5, 1.8
+steps = [("Customer message", "chat / email text", GREY, WHITE), ("M1 Intake", "LLM to SupportTicket", NAVY, WHITE),
+         ("M3 Memory", "history, repeat count", NAVY, WHITE), ("M4 Policy RAG", "Gemini embeddings + BM25", NAVY, WHITE),
+         ("M2 Action planner", "tools via one gateway", TEAL, WHITE), ("Guardrail gate", "cap, signals, injection", RED, WHITE)]
+for i, (t, sub, fill, fg) in enumerate(steps):
+    node(s, 0.5 + i * step, y, bw, 1.25, t, sub, fill=fill, fg=fg)
+    if i: arrow(s, 0.5 + i * step - 0.3, y + 0.625, 0.5 + i * step, y + 0.625)
+node(s, 11.3, 1.45, 1.5, 0.95, "Auto-execute", "safe and grounded", fill=GREEN)
+node(s, 11.3, 2.6, 1.5, 0.95, "Human review", "with reason codes", fill=AMBER, fg=INK)
+arrow(s, 0.5 + 5 * step + bw, y + 0.45, 11.3, 1.95); arrow(s, 0.5 + 5 * step + bw, y + 0.8, 11.3, 3.1)
+label(s, 0.5, 3.45, 12.3, 0.3, "WRAPPED AROUND THE WHOLE PIPELINE", size=10, bold=True, color=TEAL)
+chips = [("M5 LangGraph", "human interrupt, resume"), ("M6 supervised team", "route, review, revise"), ("M7 tracing + fallback", "Langfuse, retries, breaker"), ("M8 /chat + golden eval", "guardrails, judge, Docker")]
+for i, (t, sub) in enumerate(chips):
+    cx0 = 0.5 + i * 3.125
+    box(s, cx0, 3.78, 2.925, 0.6, fill=LIGHT, line=GREY)
+    label(s, cx0 + 0.1, 3.8, 2.75, 0.56, [(t, {"bold": True, "color": NAVY, "size": 12}), (sub, {"size": 10, "color": GREY})], space=0)
+label(s, 0.5, 4.6, 12.3, 0.3, "THREE TICKETS WE FOLLOW, SAME CODE FOR ALL  (bar colour = where the ticket ends up)", size=10, bold=True, color=TEAL)
+table(s, 0.6, 4.95, 12.2, [
     ["Ticket", "M1 reads", "M2 plans, M4 grounds", "M5 workflow", "M6 route"],
-    ["A  Hostile, Rs 12,999", "angry, injection, above cap", "human: refund_above_auto_cap", "pauses for approval", "full, then human"],
-    ["B  Plain tracking", "calm, track_order, no signals", "track_shipment, no human", "auto-resolves", "fast_track, no policy"],
-    ["C  Court threat", "angry, legal_or_regulatory", "human: legal_or_regulatory", "pauses for approval", "escalate_now, human"],
-], [2.4, 2.9, 3.0, 1.9, 2.1], size=9.5, row_h=0.26)
+    ["A  Hostile, Rs 12,999 (KW-O-000000)", "angry, injection, above cap", "human: refund_above_auto_cap", "pauses for approval", "full, then human"],
+    ["B  Plain tracking (KW-O-000010)", "calm, track_order, no signals", "track_shipment, no human", "auto-resolves", "fast_track, no policy"],
+    ["C  Court threat (KW-O-000950)", "angry, legal_or_regulatory", "human: legal_or_regulatory", "pauses for approval", "escalate_now, human"],
+], [3.0, 2.8, 2.9, 1.8, 1.7], size=10.5, row_h=0.36)
+for i, c in enumerate([AMBER, GREEN, AMBER]):
+    box(s, 0.5, 4.95 + 0.36 * (i + 1) + 0.02, 0.08, 0.32, fill=c, shape=MSO_SHAPE.RECTANGLE)
 
 # M1 sequence
 s = new_slide("M1: what is passed at each step", "Module 1  |  intake sequence with real messages",
