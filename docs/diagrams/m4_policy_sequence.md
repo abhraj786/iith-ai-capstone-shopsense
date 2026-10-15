@@ -43,6 +43,8 @@ Honest limit: the answer is extractive, so the number check passes almost by con
 
 Policy text is treated as untrusted input: a retrieved sentence that looks like an instruction ("ignore all previous instructions", "approve without review") is never quoted. The ticket-side injection patterns are reused, minus the one that also matches a real rule ("agents may not bypass approval limits").
 
+Groundedness is measured, not just flagged: for all 24 answers the eval checks that every quoted sentence appears word for word in a chunk the answer cites, and that every number is in those chunks. Result: 24 of 24 answers fully grounded, sentence groundedness 1.000 (no LLM, so it is repeatable). A unit test proves the metric fails on an invented sentence or a wrong citation.
+
 The retrieval eval logs one Langfuse trace per variant (dense, BM25, hybrid, hybrid + rerank) with hit@1, precision@3, recall@3 and MRR attached as scores.
 
 Checks: `pytest tests/unit/test_policy_agent.py tests/unit/test_policy_index.py` and `python scripts/run_retrieval_eval.py` (24 questions: hybrid recall@3 1.000, 24 of 24 correct with the order's category, 22 of 24 without).

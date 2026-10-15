@@ -34,6 +34,30 @@ def _metrics(rows, k=3):
     }
 
 
+def _groundedness(agent: PolicyAgent, chunks, cases) -> dict:
+    """Deterministic faithfulness: each quoted sentence must sit word for word in a chunk the answer cites,
+    and every number in the answer must appear in those cited chunks. No LLM, so it is fast and repeatable."""
+    from capstone.agents.policy_agent import ANSWER_PREFIX, NUMBER
+
+    text_of = {(c.document_slug, c.chunk_id): c.text for c in chunks}
+    rows = []
+    for c in cases:
+        ans = agent.answer(c["question"], category=c.get("order_category"))
+        cited = " ".join(text_of.get((x.document_slug, x.chunk_id), "") for x in ans.citations)
+        quoted = ans.evidence[:3]
+        unsupported = [q for q in quoted if q not in cited]
+        stray = [n for n in NUMBER.findall(ans.answer.removeprefix(ANSWER_PREFIX)) if n not in cited]
+        rows.append({"id": c["id"], "sentences": len(quoted), "unsupported_sentences": unsupported,
+                     "numbers_outside_citations": stray, "ok": bool(quoted) and not unsupported and not stray})
+    sentences = sum(r["sentences"] for r in rows)
+    bad = sum(len(r["unsupported_sentences"]) for r in rows)
+    return {
+        "answers_fully_grounded": f"{sum(r['ok'] for r in rows)}/{len(rows)}",
+        "sentence_groundedness": round(1 - bad / sentences, 3) if sentences else 0.0,
+        "failures": [r for r in rows if not r["ok"]],
+    }
+
+
 def _log_to_langfuse(report: dict) -> None:
     """One trace per retrieval variant, each metric attached as a score (local JSONL if no keys)."""
     from capstone.observability.tracing import get_trace_recorder
@@ -49,6 +73,12 @@ def _log_to_langfuse(report: dict) -> None:
             recorder.score(run.trace_id, key, value)
         if result.get("langfuse_url"):
             report.setdefault("langfuse_traces", {})[name] = result["langfuse_url"]
+    run = recorder.start_trace("m4-groundedness", tags=["m4", "groundedness"],
+                               metadata={"answers": report["total"], "method": "quoted sentences found in cited chunks"})
+    result = run.end(output={"sentence_groundedness": report["groundedness"]["sentence_groundedness"]})
+    recorder.score(run.trace_id, "sentence_groundedness", report["groundedness"]["sentence_groundedness"])
+    recorder.score(run.trace_id, "answers_fully_grounded",
+                   int(report["groundedness"]["answers_fully_grounded"].split("/")[0]) / report["total"])
 
 
 def main() -> None:
@@ -93,13 +123,17 @@ def main() -> None:
 
     report["answers_without_order_category"] = _answers(False)
     report["answers_with_order_category"] = _answers(True)
+    report["groundedness"] = _groundedness(agent, reranker.corpus_chunks(), cases)
     _log_to_langfuse(report)
     out = PROJECT_ROOT / args.out
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2))
     print(json.dumps({"embedding_backend": report["embedding_backend"], "variants": report["variants"],
                       **{k: {x: report[k][x] for x in ("passed", "total")} for k in
-                         ("answers_without_order_category", "answers_with_order_category")}}, indent=2))
+                         ("answers_without_order_category", "answers_with_order_category")},
+                      "groundedness": {k: report["groundedness"][k] for k in ("answers_fully_grounded", "sentence_groundedness")}}, indent=2))
+    for r in report["groundedness"]["failures"]:
+        print("UNGROUNDED", r)
     for key in ("answers_without_order_category", "answers_with_order_category"):
         for r in report[key]["failures"]:
             print("FAIL", key, r)

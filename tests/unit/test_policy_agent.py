@@ -53,3 +53,31 @@ def test_poisoned_policy_chunk_is_not_quoted():
     answer = PolicyAgent(Fake()).answer("How many days to report a damaged Home & Kitchen refund?", category="Home & Kitchen")
     assert "IGNORE" not in " ".join([answer.answer, *answer.evidence]).upper().replace("IGNORED", "")
     assert "90 days" not in answer.answer
+
+
+def test_groundedness_metric_catches_invented_sentence_and_wrong_citation():
+    import importlib.util
+
+    from capstone.rag.hybrid import CorpusChunk
+    from capstone.schemas.policy import PolicyAnswer, PolicyCitation
+
+    spec = importlib.util.spec_from_file_location("retrieval_eval", PROJECT_ROOT / "scripts" / "run_retrieval_eval.py")
+    ev = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ev)
+    chunks = [CorpusChunk("doc", "t", "s", 0, "Items must be reported within 30 days of delivery.")]
+    cite = [PolicyCitation(document_slug="doc", title="t", chunk_id=0)]
+
+    class Stub:
+        def __init__(self, sentences, citations):
+            self.sentences, self.citations = sentences, citations
+
+        def answer(self, question, category=None):
+            return PolicyAnswer(question=question, answer="Based on the retrieved policy evidence: " + " ".join(self.sentences),
+                                grounded=True, citations=self.citations, evidence=self.sentences)
+
+    case = [{"id": "x", "question": "q"}]
+    quoted = ["Items must be reported within 30 days of delivery."]
+    assert ev._groundedness(Stub(quoted, cite), chunks, case)["answers_fully_grounded"] == "1/1"
+    assert ev._groundedness(Stub(["Items must be reported within 90 days of delivery."], cite), chunks, case)["answers_fully_grounded"] == "0/1"
+    other = [PolicyCitation(document_slug="other", title="t", chunk_id=9)]
+    assert ev._groundedness(Stub(quoted, other), chunks, case)["answers_fully_grounded"] == "0/1"

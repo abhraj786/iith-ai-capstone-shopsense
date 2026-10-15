@@ -298,7 +298,7 @@ label(s, 0.6, 6.4, 12.1, 0.6, "The notebook never decides. It supplies one numbe
 
 # M4 policy RAG, sequence + sample
 s = new_slide("M4: answers are quoted from the right policy", "Module 4  |  grounded policy RAG, same customer and order",
-    "Same sample: order KW-O-000000 is a Home & Kitchen product, damaged on delivery. The query is built from the M1 ticket and the category comes from the order, not from the LLM. Step 2 is the key one: the category addenda contradict each other (apparel 45 days, Home & Kitchen 30), so other categories are excluded before searching. Without the category the same question returned apparel, furniture and groceries; with it, the answer says 30 days. Search is dense Gemini similarity with a small BM25 boost for exact policy terms; dense alone has the best hit@1 but hybrid reaches recall@3 of 1.0. The answer step uses no LLM: it quotes policy sentences, skips any that look like instructions (policy text is untrusted), drops fragments that repeat another sentence, and cites the chunk each sentence came from. A guardrail blocks any answer whose numbers are not in the evidence. Honest limit: because the answer is extractive, that number check passes almost by construction; the real protection is that nothing is generated. Checks: pytest tests/unit/test_policy_agent.py tests/unit/test_policy_index.py and python scripts/run_retrieval_eval.py (24 questions; 24 of 24 with the category, 22 without). Full diagram: docs/diagrams/m4_policy_sequence.md.")
+    "Same sample: order KW-O-000000 is a Home & Kitchen product, damaged on delivery. The query is built from the M1 ticket and the category comes from the order, not from the LLM. Step 2 is the key one: the category addenda contradict each other (apparel 45 days, Home & Kitchen 30), so other categories are excluded before searching. Without the category the same question returned apparel, furniture and groceries; with it, the answer says 30 days. Search is dense Gemini similarity with a small BM25 boost for exact policy terms; dense alone has the best hit@1 but hybrid reaches recall@3 of 1.0. The answer step uses no LLM: it quotes policy sentences, skips any that look like instructions (policy text is untrusted), drops fragments that repeat another sentence, and cites the chunk each sentence came from. A guardrail blocks any answer whose numbers are not in the evidence. Groundedness is also measured: every quoted sentence must appear word for word in a chunk the answer cites, 24 of 24, sentence groundedness 1.0, with a unit test showing the metric fails on an invented sentence. Honest limit: because the answer is extractive, the plain grounded flag passes almost by construction, which is why this stricter check exists; the real protection is that nothing is generated. Checks: pytest tests/unit/test_policy_agent.py tests/unit/test_policy_index.py and python scripts/run_retrieval_eval.py (24 questions; 24 of 24 with the category, 22 without). Full diagram: docs/diagrams/m4_policy_sequence.md.")
 cx = [1.2, 2.75, 4.3, 5.7]
 names = [("Query", GREY), ("Policy index", NAVY), ("Answer agent", NAVY), ("Guardrail", AMBER)]
 for x, (n, c) in zip(cx, names):
@@ -335,7 +335,8 @@ table(s, 6.85, 3.65, 5.9, [
     ["Hybrid fused", "0.875", "1.000", "-"],
     ["Hybrid, no category", "-", "-", "22 / 24"],
     ["Hybrid + order category", "-", "-", "24 / 24"],
-], [2.5, 1.0, 1.1, 1.3], size=11, row_h=0.34)
+    ["Groundedness (quoted = cited)", "-", "-", "24 / 24"],
+], [2.5, 1.0, 1.1, 1.3], size=11, row_h=0.32)
 label(s, 0.6, 5.95, 12.1, 0.4, "No LLM writes the answer, so a window or amount cannot be invented. Without the category: the 45-day apparel window.", size=12, bold=True, color=NAVY)
 runbar(s, 6.45, ["pytest tests/unit/test_policy_agent.py tests/unit/test_policy_index.py", "python scripts/run_retrieval_eval.py"])
 
@@ -370,7 +371,7 @@ s = new_slide("Results: safety passes; the gaps are stated openly", "Evaluation,
     "Be upfront: intent accuracy of 0.72 is below a 0.8 target on noisy Twitter-style labels; it does not affect safety because the cap and escalation rules are deterministic. The right column is the continuous-improvement story: each row is something the first real run exposed.")
 table(s, 0.6, 1.7, 5.9, [
     ["Check", "Result"],
-    ["Unit tests (fresh clone)", "68 passed"],
+    ["Unit tests (fresh clone)", "69 passed"],
     ["M8 golden, stored", "20 / 20"],
     ["M8 golden, live Gemini", "20 / 20"],
     ["M4 recall@3, hybrid", "1.000"],
@@ -388,7 +389,7 @@ s = new_slide("Live demo in five minutes, and what to remember", "Run it yoursel
     "Order matters: tests for confidence, the strict real demo, the golden eval, then the API. Keep the .env file with the keys beside you; it is not in git. Backup: demo_milestones.py --offline runs with no network. Close on the design principle, then invite questions.")
 table(s, 0.6, 1.7, 12.1, [
     ["Step", "Command", "What the audience sees"],
-    ["1  Tests", "python -m pytest tests -q", "68 passed"],
+    ["1  Tests", "python -m pytest tests -q", "69 passed"],
     ["2  Milestones", "python demo_milestones.py --real", "M1 to M8 on live LLM, Qdrant Cloud, LangFuse"],
     ["3  Golden eval", "python scripts/run_m8_golden_eval.py --live", "20 of 20 with guardrail codes"],
     ["4  API", "uvicorn capstone.api:app, then demo_api_client.py", "/chat decisions for 7 cases"],
@@ -397,7 +398,7 @@ label(s, 0.6, 4.3, 12.1, 0.4, "Setup: copy .env.example to .env and add the Gemi
 box(s, 0.6, 4.85, 12.1, 1.95, fill=NAVY)
 label(s, 0.9, 4.95, 11.5, 1.8, [("Let the model read, let code decide.  A fooled model still cannot move money.", {"size": 17, "bold": True, "color": WHITE}),
     ("Measure, then fix.  Real runs found four weaknesses; each fix has a number.", {"size": 17, "bold": True, "color": WHITE}),
-    ("Every claim is runnable.  68 tests, 20 golden cases, a strict real-services demo.", {"size": 17, "bold": True, "color": WHITE}),
+    ("Every claim is runnable.  69 tests, 20 golden cases, a strict real-services demo.", {"size": 17, "bold": True, "color": WHITE}),
     ("github.com/abhraj786/iith-ai-capstone-shopsense", {"size": 12, "color": RGBColor(0xB8, 0xC7, 0xDA)})], space=6)
 
 assert len(prs.slides) == total_slides, len(prs.slides)
